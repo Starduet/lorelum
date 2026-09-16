@@ -470,7 +470,7 @@ test("a source-only addition does not advance effectiveRevision (定稿 §9 #6)"
           .get("platform.api"),
       ).toEqual({ effective_revision: first.effectiveRevision });
     } finally {
-      database.close();
+      database.close(true);
     }
 
     const practices = await store.readEffectivePractices(root);
@@ -497,7 +497,7 @@ test("normal mutation rejects Active Pack rows that disagree with the manifest",
     try {
       database.query("UPDATE active_packs SET pack_version = 'tampered'").run();
     } finally {
-      database.close();
+      database.close(true);
     }
 
     await expect(
@@ -627,7 +627,7 @@ test("counter exhaustion rejects before writing a journal or changing state", as
     database
       .query("UPDATE local_store_metadata SET installed_packs_generation = ?")
       .run(Number.MAX_SAFE_INTEGER);
-    database.close();
+    database.close(true);
 
     await expect(
       store.install(root, candidate("web", { "web.css": "Use CSS.\n" })),

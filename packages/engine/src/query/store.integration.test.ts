@@ -109,7 +109,7 @@ test("new queries reflect install, upgrade and uninstall without an index migrat
       expect(tables()).toEqual(beforeTables);
       expect(await readManifest(root.rootPath)).toEqual(before);
     } finally {
-      database.close();
+      database.close(true);
     }
     await store.uninstall(root, input.pack.name);
     expect((await query.query(root, { text: "Narwhal" })).results).toEqual([]);

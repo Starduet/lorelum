@@ -25,7 +25,7 @@ export async function openStoreDatabase(rootPath: string): Promise<Database> {
     migrateDatabase(database);
     return database;
   } catch (error) {
-    database?.close();
+    database?.close(true);
     if (error instanceof SqliteStateError) throw error;
     throw new SqliteStateError("cannot open LocalStore database", error);
   }

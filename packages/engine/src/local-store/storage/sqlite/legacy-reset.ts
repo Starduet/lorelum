@@ -25,6 +25,27 @@ import { readLocalStoreSnapshot } from "./snapshot-reader";
 import { writeDerivedState } from "./state-writer";
 
 const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations";
+const RENAME_RETRY_ATTEMPTS = 10;
+const RENAME_RETRY_DELAY_MS = 50;
+
+function isTransientRenameError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  return error.code === "EACCES" || error.code === "EBUSY" || error.code === "EPERM";
+}
+
+async function renameWithRetry(source: string, destination: string): Promise<void> {
+  for (let attempt = 0; attempt < RENAME_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop -- file-handle retries must remain sequential
+      await rename(source, destination);
+      return;
+    } catch (error) {
+      if (!isTransientRenameError(error) || attempt === RENAME_RETRY_ATTEMPTS - 1) throw error;
+      // eslint-disable-next-line no-await-in-loop -- file-handle retries must remain sequential
+      await new Promise<void>((resolve) => setTimeout(resolve, RENAME_RETRY_DELAY_MS));
+    }
+  }
+}
 
 function hasTable(database: Database, name: string): boolean {
   // SQLite's catalog is the only reliable way to distinguish a legacy file
@@ -58,7 +79,7 @@ async function isLegacyStore(rootPath: string): Promise<boolean> {
   } catch (error) {
     throw new SqliteStateError("cannot inspect existing LocalStore database", error);
   } finally {
-    database?.close();
+    database?.close(true);
   }
 }
 
@@ -86,6 +107,33 @@ function nextBaselineManifest(manifest: InstalledPacksManifest): InstalledPacksM
     effectiveRevision: manifest.effectiveRevision + 1,
     packs: manifest.packs,
   });
+}
+
+/** Replace an existing SQLite file without relying on rename-overwrite semantics. */
+async function replaceDatabaseFile(path: string, stagingPath: string): Promise<void> {
+  if (process.platform !== "win32") {
+    await renameWithRetry(stagingPath, path);
+    return;
+  }
+
+  // Windows cannot rename a file over an existing SQLite database. Quarantine
+  // the old projection first, then restore it if publishing the replacement
+  // fails so the recovery journal can still converge to the old tuple.
+  const quarantine = `${path}.legacy-${crypto.randomUUID()}`;
+  await renameWithRetry(path, quarantine);
+  try {
+    await renameWithRetry(stagingPath, path);
+  } catch (error) {
+    try {
+      await renameWithRetry(quarantine, path);
+    } catch {
+      throw new StoreRecoveryRequiredError(
+        "Legacy LocalStore cannot restore its SQLite projection after rebuild failure",
+      );
+    }
+    throw error;
+  }
+  await rm(quarantine, { force: true }).catch(() => undefined);
 }
 
 async function publishRebuiltDatabase(rootPath: string, fullRefresh: boolean): Promise<void> {
@@ -128,7 +176,7 @@ async function publishRebuiltDatabase(rootPath: string, fullRefresh: boolean): P
         "Legacy LocalStore rebuild did not produce a valid snapshot",
       );
     }
-    database.close();
+    database.close(true);
     database = undefined;
 
     await discardLegacyDerivedState(rootPath);
@@ -140,7 +188,7 @@ async function publishRebuiltDatabase(rootPath: string, fullRefresh: boolean): P
       await writeManifest(rootPath, targetManifest);
     }
     await Promise.all([rm(`${path}-wal`, { force: true }), rm(`${path}-shm`, { force: true })]);
-    await rename(stagingPath, path);
+    await replaceDatabaseFile(path, stagingPath);
     if (journal !== undefined) await clearOperationJournal(rootPath, journal.operationId);
   } catch (error) {
     if (error instanceof StoreRecoveryRequiredError) throw error;
@@ -148,7 +196,7 @@ async function publishRebuiltDatabase(rootPath: string, fullRefresh: boolean): P
       "Legacy LocalStore cannot be rebuilt from its manifest and Pack artifacts",
     );
   } finally {
-    database?.close();
+    database?.close(true);
     await rm(stagingPath, { force: true }).catch(() => undefined);
   }
 }

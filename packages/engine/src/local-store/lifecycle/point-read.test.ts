@@ -407,6 +407,6 @@ async function withDatabase(
   try {
     action(database);
   } finally {
-    database.close();
+    database.close(true);
   }
 }

@@ -21,7 +21,7 @@ export function createSqliteConnection<Schema extends Record<string, unknown>>(
     client,
     orm,
     close() {
-      client.close();
+      client.close(true);
     },
   });
 }
@@ -39,7 +39,7 @@ export function openSqliteConnection<Schema extends Record<string, unknown>>(
     client = opened;
     return createSqliteConnection(opened, schema);
   } catch (error) {
-    client?.close();
+    client?.close(true);
     throw error;
   }
 }

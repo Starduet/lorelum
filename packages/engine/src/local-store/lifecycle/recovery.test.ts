@@ -65,7 +65,7 @@ async function replaceWithLegacyStoreDatabase(rootPath: string): Promise<void> {
       ].join(";"),
     );
   } finally {
-    database.close();
+    database.close(true);
   }
 }
 
@@ -148,7 +148,7 @@ test("cold open rejects SQLite whose tuple disagrees with the manifest", async (
     // but the tuples disagree and no journal exists → recovery required.
     const database = await openStoreDatabase(root.rootPath);
     database.query("UPDATE local_store_metadata SET installed_packs_generation = 99").run();
-    database.close();
+    database.close(true);
     await expect(store.open(root)).rejects.toBeInstanceOf(StoreRecoveryRequiredError);
   });
 });
@@ -249,7 +249,7 @@ test("reindex restores derived state from the manifest and sealed artifacts", as
     // Corrupt SQLite metadata to force an inconsistent tuple.
     const database = await openStoreDatabase(root.rootPath);
     database.query("UPDATE local_store_metadata SET effective_revision = 42").run();
-    database.close();
+    database.close(true);
 
     const reindexed = await store.reindex(root);
     // reindex derives the fresh revision from the manifest (authority), not
@@ -401,7 +401,7 @@ test("cold open never converges a journal while its writer still owns the lock",
       activePacks: targetManifest.packs,
       effectivePractices: oldOpen.effectivePractices,
     });
-    database.close();
+    database.close(true);
     await clearOperationJournal(root.rootPath, journal.operationId);
     await writerLock.release();
 
@@ -524,7 +524,7 @@ test("cold open maps post-migration SQLite corruption to recovery-required", asy
     await store.install(root, candidate("platform", platform));
     const database = await openStoreDatabase(root.rootPath);
     database.exec("DROP TABLE effective_practices");
-    database.close();
+    database.close(true);
 
     await expect(store.open(root)).rejects.toBeInstanceOf(StoreRecoveryRequiredError);
     const reindexed = await store.reindex(root);
@@ -550,7 +550,7 @@ test("journal recovery maps a missing metadata table to recovery-required", asyn
     );
     const database = await openStoreDatabase(root.rootPath);
     database.exec("DROP TABLE local_store_metadata");
-    database.close();
+    database.close(true);
 
     await expect(store.open(root)).rejects.toBeInstanceOf(StoreRecoveryRequiredError);
   });
@@ -597,7 +597,7 @@ test("legacy reset rebuilds the SQLite projection from retained Pack artifacts w
       {
         name: "platform",
         version: "1.0.0",
-        packRoot: expect.stringContaining("/packs/p-platform/"),
+        packRoot: expect.stringContaining(join("packs", "p-platform", "current")),
       },
     ]);
     expect(opened.effectivePractices.map((practice) => practice.practiceId)).toEqual([
@@ -616,7 +616,7 @@ test("legacy reset rebuilds the SQLite projection from retained Pack artifacts w
         { practice_id: "platform.auth" },
       ]);
     } finally {
-      database.close();
+      database.close(true);
     }
   });
 });
@@ -710,7 +710,7 @@ test("legacy reset retains its SQLite projection when a referenced Pack artifact
           .get(),
       ).toEqual({ name: "local_store_metadata" });
     } finally {
-      database.close();
+      database.close(true);
     }
   });
 });

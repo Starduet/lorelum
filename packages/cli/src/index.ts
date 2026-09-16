@@ -16,6 +16,18 @@ export {
   type TextInput,
 } from "./hook/codex.js";
 export {
+  buildZcodeHookResponse,
+  createZcodeHookResponse,
+  parseZcodeHookInvocation,
+  runZcodeHook,
+  type ZcodeHookEvent,
+  type ZcodeHookInput,
+  type ZcodeHookResponse,
+  type ZcodeHookServices,
+  type ZcodeHookInvocation,
+  type RunZcodeHookOptions,
+} from "./hook/zcode.js";
+export {
   DEFAULT_MAX_CHARACTERS as CODEX_HOOK_CATALOG_MAX_CHARACTERS,
   renderPackCatalog,
   type InstalledPackCatalogEntry,

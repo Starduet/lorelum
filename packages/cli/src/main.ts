@@ -8,6 +8,7 @@ import {
   type CodexHookServices,
   type TextInput,
 } from "./hook/codex.js";
+import { parseZcodeHookInvocation, runZcodeHook, type ZcodeHookServices } from "./hook/zcode.js";
 import { renderFailure, type OutputWriter } from "./output/protocol.js";
 import { rootCommand, type CommandDefinition, type KnownCommand } from "./registry.js";
 import { toVisibleCliError } from "./runtime/errors.js";
@@ -22,6 +23,8 @@ export interface RunOptions {
   stdin?: TextInput;
   /** Override the raw Codex Hook Store adapter in source-level tests. */
   codexHookServices?: CodexHookServices;
+  /** Override the raw ZCode Hook Store adapter in source-level tests. */
+  zcodeHookServices?: ZcodeHookServices;
   stderr?: OutputWriter;
   stdout?: OutputWriter;
 }
@@ -38,6 +41,16 @@ export async function run(arguments_: string[], options: RunOptions = {}): Promi
       stderr,
       ...(options.codexHookServices === undefined ? {} : { services: options.codexHookServices }),
       ...(codexHook.storeRoot === undefined ? {} : { storeRoot: codexHook.storeRoot }),
+    });
+  }
+  const zcodeHook = parseZcodeHookInvocation(arguments_);
+  if (zcodeHook !== undefined) {
+    return runZcodeHook({
+      stdin: options.stdin ?? standardInput,
+      stdout,
+      stderr,
+      ...(options.zcodeHookServices === undefined ? {} : { services: options.zcodeHookServices }),
+      ...(zcodeHook.storeRoot === undefined ? {} : { storeRoot: zcodeHook.storeRoot }),
     });
   }
   let command: KnownCommand | "unknown" = "unknown";

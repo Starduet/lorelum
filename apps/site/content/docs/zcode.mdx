@@ -1,0 +1,56 @@
+---
+title: ZCode
+description: Install the official Plugin to discover Packs and retrieve Practices in ZCode.
+icon: Plug
+---
+
+The Lorelum Plugin gives ZCode an installed-Pack catalog, a Skill, and a `/lore` command for retrieving engineering Practices. The catalog helps ZCode discover available knowledge; the Skill guides targeted queries and full Practice reads.
+
+## Scope
+
+The integration is deliberately CLI-first: it uses the released `lore` executable, the Lorelum Skill, the `/lore` command, and the ZCode Hook. It does not run a local MCP server or expose local MCP tools. A remote-retrieval MCP service is a separate future product boundary, not a local Plugin convenience.
+
+## Prerequisites
+
+Complete [Quickstart](./quickstart), then check these commands in the environment that runs ZCode:
+
+```sh
+lore --version
+lore pack list --details
+```
+
+The Plugin requires a Lorelum CLI release newer than v0.1.0-alpha.2 that ships the `lore hook zcode` command, available as `lore` on `PATH`. It does not bundle, install, or update the CLI; it uses Packs already installed in the local Store. Bun and Node are not required on an ordinary user's machine. On Windows, the Hook wrapper looks for Git Bash to launch its script; without bash the session simply continues without a catalog.
+
+If an older or unavailable CLI cannot run `lore hook zcode`, the Hook lets ZCode continue without a catalog. Install a compatible CLI before expecting Pack discovery.
+
+## Install
+
+In the ZCode client, open **Settings → Plugin Management → Discover** and press **`+`** to add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace. Then find the **Lorelum** card from the `lorelum-plugins` marketplace and click **Get** to install it. The installed identity is `lorelum-zcode@lorelum-plugins`.
+
+Start a new session. At supported session-start events, the Hook runs `lore hook zcode` to obtain Pack-level discovery data, including each readable current `packRoot`.
+
+## How it works
+
+1. At supported session-start events (startup, resume, clear, and compact), the Hook supplies a compact catalog of installed Packs. It can include Pack names, versions, descriptions, declared stack scope, and readable current `packRoot` locators.
+2. The Skill uses that catalog as a relevance hint for a material task or decision, then runs one targeted semantic query when guidance is needed.
+3. ZCode reads the complete Practice with `lore get` before applying its guidance.
+
+The `/lore` command is the explicit entry point: `/lore <question>` runs one targeted semantic query for the question through the Skill, and `/lore` without arguments retrieves Practices relevant to the current task.
+
+A catalog entry is not the full guidance or a resource listing. Catalog limits can omit Packs, so the catalog is not a hard filter on what may be relevant. ZCode can refresh it with `lore pack list --details`.
+
+The Hook does not query, install or modify Packs, download models, start Backend, or build indexes by itself. A semantic query is initiated by the Skill when it needs guidance; preparation or recovery stays explicit rather than being hidden by the Hook.
+
+## Verify
+
+In a new session, check that `/lore` appears in the command menu. Ask ZCode to use Lorelum before defining an implementation or verification plan, and check that it runs a meaningful query and reads a relevant Practice. If a query returns `preparing`, finish preparation and retry; a catalog alone does not verify semantic retrieval.
+
+## Update
+
+From the plugin detail view in **Settings → Plugin Management**, uninstall and reinstall the Plugin so ZCode refreshes the cached plugin from the marketplace. CLI and Pack updates remain separate.
+
+## Troubleshoot
+
+If the catalog is missing, check that `lore` is on the ZCode process's `PATH`, the installed CLI supports `lore hook zcode`, a Pack is installed, and (on Windows) Git Bash is available. An unavailable CLI, an older CLI, or malformed Hook data lets the session continue without injected catalog context; update the CLI before treating a missing catalog as a retrieval result.
+
+Use [Troubleshooting](./troubleshooting) for model and index problems. See [Agent instructions](./agents) for response handling and retrieval behavior.

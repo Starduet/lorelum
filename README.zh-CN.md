@@ -141,12 +141,13 @@ lore get <practice-id>
 
 Skill 指导 Agent 判断何时检索、如何描述任务和时刻，以及为什么应用前需要读取完整 Practice。
 
-| 宿主                   | 接入方式                                  |
-| ---------------------- | ----------------------------------------- |
-| Codex                  | 官方 Plugin，包含 Skill 和 Pack 目录 Hook |
-| Claude Code            | 项目级或个人级 Lorelum Skill              |
-| Cursor                 | 项目级 Lorelum Skill                      |
-| 其他能执行命令的 Agent | 宿主支持的 Skill 或项目指令               |
+| 宿主                   | 接入方式                                               |
+| ---------------------- | ------------------------------------------------------ |
+| Codex                  | 官方 Plugin，包含 Skill 和 Pack 目录 Hook              |
+| ZCode                  | 官方 Plugin，包含 Skill、`/lore` 命令和 Pack 目录 Hook |
+| Claude Code            | 项目级或个人级 Lorelum Skill                           |
+| Cursor                 | 项目级 Lorelum Skill                                   |
+| 其他能执行命令的 Agent | 宿主支持的 Skill 或项目指令                            |
 
 Codex 用户安装 CLI 和 Pack 后运行：
 
@@ -155,16 +156,18 @@ codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
+ZCode 用户在 **Settings → Plugin Management → Discover** 中把 `lorelum/lorelum` 仓库添加为 marketplace，安装 Lorelum Plugin（`lorelum-zcode@lorelum-plugins`）；之后 `/lore` 可针对当前任务或可选的问题检索 Practice。
+
 按提示审阅 Hook，再启动新任务。Hook 通过 `lore pack list --details` 读取已安装 Pack 的元数据，Skill 判断何时查询并读取 Practice。Plugin 不内置 CLI。
 
-安装与验证步骤见[接入 Agent](https://lorelum.com/zh/docs/agent-setup)和 [Codex 配置](https://lorelum.com/zh/docs/codex)。
+安装与验证步骤见[接入 Agent](https://lorelum.com/zh/docs/agent-setup)、[Codex 配置](https://lorelum.com/zh/docs/codex)和 [ZCode 配置](https://lorelum.com/zh/docs/zcode)。
 
 ## 选择或创建 Knowledge Pack
 
-| 官方 Pack        | 版本    | 重点                                     |
-| ---------------- | ------- | ---------------------------------------- |
+| 官方 Pack | 版本 | 重点 |
+| --- | --- | --- |
 | `agentic-coding` | `0.4.0` | 规划、实现、校验边界、恢复、验证和交付中的工程判断 |
-| `pack-creator`   | `0.1.0` | Practice 与 Pack 的编写、评审和发布      |
+| `pack-creator` | `0.1.0` | Practice 与 Pack 的编写、评审和发布 |
 | `react-web-craft` | `0.1.0` | React Web 应用设计与性能：组件状态、异步数据流、代码加载、渲染与组合 |
 | `issue-pr-etiquette` | `0.1.0` | 可验证的单问题 Issue、单范围 PR、审查沟通与诚实披露 AI 协助 |
 

@@ -142,12 +142,13 @@ On first use, a query may return `data.state: "preparing"` while the model downl
 
 The Skill explains when to retrieve, how to describe the task and moment, and why the agent should read full Practices before applying them.
 
-| Host                         | Setup                                                        |
-| ---------------------------- | ------------------------------------------------------------ |
-| Codex                        | Official Plugin, including the Skill and a Pack-catalog Hook |
-| Claude Code                  | Project or personal Lorelum Skill                            |
-| Cursor                       | Project Lorelum Skill                                        |
-| Other command-capable agents | Host-supported Skill or project instructions                 |
+| Host | Setup |
+| --- | --- |
+| Codex | Official Plugin, including the Skill and a Pack-catalog Hook |
+| ZCode | Official Plugin, including the Skill, a `/lore` command, and a Pack-catalog Hook |
+| Claude Code | Project or personal Lorelum Skill |
+| Cursor | Project Lorelum Skill |
+| Other command-capable agents | Host-supported Skill or project instructions |
 
 For Codex, after installing the CLI and a Pack:
 
@@ -156,9 +157,11 @@ codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
+For ZCode, add the `lorelum/lorelum` repository as a marketplace in **Settings → Plugin Management → Discover** and install the Lorelum Plugin (`lorelum-zcode@lorelum-plugins`); `/lore` then retrieves Practices for the current task or an optional question.
+
 Review the Hook when prompted, then start a new task. The Hook reads installed Pack metadata with `lore pack list --details`; the Skill decides when to make its targeted semantic query and read Practices. The Plugin does not bundle the CLI. Other command-capable agents use the generic Lorelum Skill, which establishes a Pack Catalog with `lore pack list --details` only when the current context does not already contain one.
 
-See [Agent integration](https://lorelum.com/en/docs/agent-setup) and [Codex setup](https://lorelum.com/en/docs/codex) for installation and verification.
+See [Agent integration](https://lorelum.com/en/docs/agent-setup), [Codex setup](https://lorelum.com/en/docs/codex), and [ZCode setup](https://lorelum.com/en/docs/zcode) for installation and verification.
 
 ## Choose or create a Knowledge Pack
 

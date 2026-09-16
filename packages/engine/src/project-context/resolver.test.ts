@@ -7,9 +7,10 @@ import { canonicalizePractice } from "../local-store/model/canonical-practice";
 import type { EffectivePractice } from "../local-store/model/types";
 import { InvalidProjectRootError } from "./types";
 import { resolveProjectContext } from "./resolver";
+import { createIsolatedProjectSandbox } from "./project-sandbox.test-helper";
 
 async function fixture(run: (root: string) => Promise<void>): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "lorelum-project-context-"));
+  const root = await createIsolatedProjectSandbox("lorelum-project-context-");
   try {
     await run(root);
   } finally {

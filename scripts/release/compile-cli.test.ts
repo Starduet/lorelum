@@ -32,45 +32,60 @@ const manifest: NativeArtifactManifest = {
   dynamicDependencies: ["/usr/lib/libSystem.B.dylib"],
 };
 
-test("release compiler embeds its supplied manifest and disables cwd dotenv discovery", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "lore-release-compile-"));
-  try {
-    const manifestArtifact = join(directory, "expected-manifest.json");
-    const entrypoint = join(directory, "entry.ts");
-    const executable = join(directory, "fixture");
-    await writeFile(manifestArtifact, JSON.stringify({ buildIdentity: "source-build" }));
-    await writeFile(
-      entrypoint,
-      [
-        'import manifest from "./expected-manifest.json";',
-        'console.log(`${manifest.buildIdentity}:${process.env.LORELUM_RELEASE_TEST ?? "unset"}`);',
-      ].join("\n"),
-    );
-    await writeFile(join(directory, ".env"), "LORELUM_RELEASE_TEST=from-dotenv\n");
+// Each case runs `bun build --compile`, and a cold compile alone can exceed the
+// 5000ms test default on slower machines, so give the cases an explicit budget.
+const compileTimeoutMs = 30_000;
 
-    const compiled = await compileReleaseCli({
-      nativeManifest: manifest,
-      outfile: executable,
-      entrypoint,
-      manifestArtifact,
-      artifact,
-      target: `bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget,
-    });
-    const child = Bun.spawn([compiled.output], { cwd: directory, stdout: "pipe", stderr: "pipe" });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
-    expect(exitCode).toBe(0);
-    expect(stderr).toBe("");
-    expect(stdout.trim()).toBe(`${manifest.buildIdentity}:unset`);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
+function compileTest(name: string, fn: () => Promise<void>): void {
+  test(name, fn, compileTimeoutMs);
+}
 
-test("release compiler replaces the embedding catalog's trusted manifest", async () => {
+compileTest(
+  "release compiler embeds its supplied manifest and disables cwd dotenv discovery",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "lore-release-compile-"));
+    try {
+      const manifestArtifact = join(directory, "expected-manifest.json");
+      const entrypoint = join(directory, "entry.ts");
+      const executable = join(directory, "fixture");
+      await writeFile(manifestArtifact, JSON.stringify({ buildIdentity: "source-build" }));
+      await writeFile(
+        entrypoint,
+        [
+          'import manifest from "./expected-manifest.json";',
+          'console.log(`${manifest.buildIdentity}:${process.env.LORELUM_RELEASE_TEST ?? "unset"}`);',
+        ].join("\n"),
+      );
+      await writeFile(join(directory, ".env"), "LORELUM_RELEASE_TEST=from-dotenv\n");
+
+      const compiled = await compileReleaseCli({
+        nativeManifest: manifest,
+        outfile: executable,
+        entrypoint,
+        manifestArtifact,
+        artifact,
+        target: `bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget,
+      });
+      const child = Bun.spawn([compiled.output], {
+        cwd: directory,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe("");
+      expect(stdout.trim()).toBe(`${manifest.buildIdentity}:unset`);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+compileTest("release compiler replaces the embedding catalog's trusted manifest", async () => {
   const directory = await mkdtemp(join(tmpdir(), "lore-release-catalog-"));
   const releaseManifest = { ...manifest, buildIdentity: digest("catalog-release-build") };
   try {
@@ -105,43 +120,46 @@ test("release compiler replaces the embedding catalog's trusted manifest", async
   }
 });
 
-test("release compiler embeds ProjectContext cache migrations for cold initialization", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "lore-release-migrations-"));
-  try {
-    const manifestArtifact = join(directory, "expected-manifest.json");
-    const entrypoint = join(directory, "entry.ts");
-    const executable = join(directory, "fixture");
-    await writeFile(manifestArtifact, JSON.stringify({ buildIdentity: "source-build" }));
-    await writeFile(
-      entrypoint,
-      [
-        'import { Database } from "bun:sqlite";',
-        `import { createSqliteConnection, projectKeywordIndexDatabaseDefinition, migrateSqlite } from ${JSON.stringify(join(repositoryRoot, "packages/engine/src/persistence/index.ts"))};`,
-        'const connection = createSqliteConnection(new Database(":memory:"), projectKeywordIndexDatabaseDefinition.schema);',
-        "migrateSqlite(connection, projectKeywordIndexDatabaseDefinition);",
-        "console.log(connection.client.query(\"SELECT name FROM sqlite_master WHERE name = 'keyword_documents'\").get().name);",
-        "connection.close();",
-      ].join("\n"),
-    );
+compileTest(
+  "release compiler embeds ProjectContext cache migrations for cold initialization",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "lore-release-migrations-"));
+    try {
+      const manifestArtifact = join(directory, "expected-manifest.json");
+      const entrypoint = join(directory, "entry.ts");
+      const executable = join(directory, "fixture");
+      await writeFile(manifestArtifact, JSON.stringify({ buildIdentity: "source-build" }));
+      await writeFile(
+        entrypoint,
+        [
+          'import { Database } from "bun:sqlite";',
+          `import { createSqliteConnection, projectKeywordIndexDatabaseDefinition, migrateSqlite } from ${JSON.stringify(join(repositoryRoot, "packages/engine/src/persistence/index.ts"))};`,
+          'const connection = createSqliteConnection(new Database(":memory:"), projectKeywordIndexDatabaseDefinition.schema);',
+          "migrateSqlite(connection, projectKeywordIndexDatabaseDefinition);",
+          "console.log(connection.client.query(\"SELECT name FROM sqlite_master WHERE name = 'keyword_documents'\").get().name);",
+          "connection.close();",
+        ].join("\n"),
+      );
 
-    const compiled = await compileReleaseCli({
-      nativeManifest: manifest,
-      outfile: executable,
-      entrypoint,
-      manifestArtifact,
-      artifact,
-      target: `bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget,
-    });
-    const child = Bun.spawn([compiled.output], { stdout: "pipe", stderr: "pipe" });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
-    expect(exitCode).toBe(0);
-    expect(stderr).toBe("");
-    expect(stdout.trim()).toBe("keyword_documents");
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
+      const compiled = await compileReleaseCli({
+        nativeManifest: manifest,
+        outfile: executable,
+        entrypoint,
+        manifestArtifact,
+        artifact,
+        target: `bun-${process.platform}-${process.arch}` as Bun.Build.CompileTarget,
+      });
+      const child = Bun.spawn([compiled.output], { stdout: "pipe", stderr: "pipe" });
+      const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe("");
+      expect(stdout.trim()).toBe("keyword_documents");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);

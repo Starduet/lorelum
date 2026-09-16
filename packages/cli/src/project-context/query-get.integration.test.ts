@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createLocalStore, createQueryService, decodePackDirectory } from "@lorelum/engine";
@@ -9,6 +8,7 @@ import { createGetCommand } from "../get/get-command";
 import { run } from "../main";
 import { validateJsonSchema } from "../output/protocol-schema.test-helper";
 import { createProjectContextResolver } from "../project-context/service";
+import { createIsolatedProjectSandbox } from "../project-context/project-sandbox.test-helper";
 import { createQueryCommand } from "../query/query-command";
 import { snapshotCommandDefinitions } from "../registry";
 
@@ -64,7 +64,7 @@ async function writePack(
 }
 
 test("query and get use project winners, retain valid neighbors, and keep --no-project Store-only", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "lorelum-cli-project-context-"));
+  const directory = await createIsolatedProjectSandbox("lorelum-cli-project-context-");
   const storeRoot = join(directory, "store");
   const cacheRoot = join(directory, "cache");
   const parent = join(directory, "parent");

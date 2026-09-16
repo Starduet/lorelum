@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 
 import { run } from "../main.js";
 import { describeCommand, snapshotCommandDefinitions } from "../registry.js";
+import { createIsolatedProjectSandbox } from "../project-context/project-sandbox.test-helper.js";
 import { createLocalizationCommands } from "./index.js";
 
 class MemoryWriter {
@@ -109,7 +110,7 @@ test("validate reports stale localization as a completed finding", async () => {
 });
 
 test("validate turns recoverable ProjectContext warnings into strict diagnostics", async () => {
-  const root = await mkdtemp(join(tmpdir(), "lorelum-project-validate-"));
+  const root = await createIsolatedProjectSandbox("lorelum-project-validate-");
   try {
     const pack = join(root, ".lorelum", "packs", "platform");
     await mkdir(join(pack, "practices"), { recursive: true });

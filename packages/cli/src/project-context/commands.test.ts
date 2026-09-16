@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { run } from "../main";
+import { createIsolatedProjectSandbox } from "./project-sandbox.test-helper";
 
 class MemoryWriter {
   value = "";
@@ -15,7 +16,7 @@ class MemoryWriter {
 
 test("context status reports safe ProjectContext provenance without absolute source paths", async () => {
   const [root, store] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-context-status-")),
+    createIsolatedProjectSandbox("lorelum-context-status-"),
     mkdtemp(join(tmpdir(), "lorelum-context-status-store-")),
   ]);
   try {

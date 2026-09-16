@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# SessionStart hook for the Lorelum ZCode plugin: restore the compact
+# Installed Pack Catalog through the versioned `lore hook zcode` CLI ABI.
+# stdin flows through to the CLI; diagnostics flow to stderr. When the CLI
+# is unavailable or exits non-zero, print the continue envelope so the host
+# session is never blocked.
+
+set -uo pipefail
+
+if output="$(lore hook zcode)"; then
+  printf '%s\n' "$output"
+else
+  printf '%s\n' '{"continue":true}'
+fi
+
+exit 0

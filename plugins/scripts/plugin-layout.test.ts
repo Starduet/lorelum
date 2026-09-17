@@ -100,10 +100,10 @@ test("layout validation rejects public host suffixes, cross-host sources, and ve
       source: "./plugins/codex/lorelum",
     }),
   ).toThrow("Expected ./plugins/zcode/lorelum");
-  expect(() => assertZCodeMarketplaceVersion(undefined, "0.1.0-alpha.1")).toThrow(
+  expect(() => assertZCodeMarketplaceVersion(undefined, "0.1.0-alpha.2")).toThrow(
     "ZCode marketplace version",
   );
-  expect(() => assertZCodeMarketplaceVersion("0.1.0-alpha.0", "0.1.0-alpha.1")).toThrow(
+  expect(() => assertZCodeMarketplaceVersion("0.1.0-alpha.1", "0.1.0-alpha.2")).toThrow(
     "ZCode marketplace version",
   );
 });

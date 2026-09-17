@@ -14,20 +14,24 @@ if "%~1"=="" (
 
 set "HOOK_DIR=%~dp0"
 
-REM Try Git for Windows bash in standard locations
-if exist "C:\Program Files\Git\bin\bash.exe" (
-    "C:\Program Files\Git\bin\bash.exe" "%HOOK_DIR%%~1"
-    exit /b %ERRORLEVEL%
+REM Locate Git Bash portably: standard C: paths first, then derive from
+REM git.exe on PATH (any install drive), then any bash.exe on PATH that
+REM is not the WSL stub in System32 (it cannot run Windows-path scripts).
+set "BASH_CMD="
+if exist "C:\Program Files\Git\bin\bash.exe" set "BASH_CMD=C:\Program Files\Git\bin\bash.exe"
+if not defined BASH_CMD if exist "C:\Program Files (x86)\Git\bin\bash.exe" set "BASH_CMD=C:\Program Files (x86)\Git\bin\bash.exe"
+if not defined BASH_CMD (
+    for /f "delims=" %%G in ('where git.exe 2^>nul') do if not defined BASH_CMD (
+        if exist "%%~dpG..\bin\bash.exe" set "BASH_CMD=%%~dpG..\bin\bash.exe"
+    )
 )
-if exist "C:\Program Files (x86)\Git\bin\bash.exe" (
-    "C:\Program Files (x86)\Git\bin\bash.exe" "%HOOK_DIR%%~1"
-    exit /b %ERRORLEVEL%
+if not defined BASH_CMD (
+    for /f "delims=" %%G in ('where bash.exe 2^>nul') do if not defined BASH_CMD (
+        echo %%~dpG | findstr /I /C:"System32" >nul || set "BASH_CMD=%%~fG"
+    )
 )
-
-REM Try bash on PATH (e.g. user-installed Git Bash, MSYS2, Cygwin)
-where bash >nul 2>nul
-if %ERRORLEVEL% equ 0 (
-    bash "%HOOK_DIR%%~1"
+if defined BASH_CMD (
+    "%BASH_CMD%" "%HOOK_DIR%%~1"
     exit /b %ERRORLEVEL%
 )
 

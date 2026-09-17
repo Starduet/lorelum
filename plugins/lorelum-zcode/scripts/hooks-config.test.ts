@@ -65,6 +65,20 @@ test("hook scripts invoke only the released lore CLI and keep a continue fallbac
   expect(runHook).not.toContain("@lorelum/");
 });
 
+test("Windows wrapper locates Git Bash portably across install drives", async () => {
+  const runHook = await readFile(join(import.meta.dir, "../hooks/run-hook.cmd"), "utf8");
+
+  // Bash discovery must not depend on C:-only install locations: derive the
+  // bash path from git.exe on PATH (any drive) and never fall back to the
+  // WSL stub in System32, which cannot run Windows-path hook scripts.
+  expect(runHook).toContain("where git.exe");
+  expect(runHook).toContain("%%~dpG..\\bin\\bash.exe");
+  expect(runHook).toContain("System32");
+  // When no usable bash exists the wrapper still degrades silently so the
+  // host session continues without the catalog.
+  expect(runHook).toContain("exit /b 0");
+});
+
 test.skipIf(process.platform === "win32")(
   "forwards the Hook payload to lore hook zcode without a Bun runtime",
   async () => {

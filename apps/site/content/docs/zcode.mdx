@@ -19,7 +19,9 @@ lore --version
 lore pack list --details
 ```
 
-The Plugin requires a Lorelum CLI release newer than v0.1.0-alpha.2 that ships the `lore hook zcode` command, available as `lore` on `PATH`. It does not bundle, install, or update the CLI; it uses Packs already installed in the local Store. Bun and Node are not required on an ordinary user's machine. On Windows, the Hook wrapper looks for Git Bash to launch its script; without bash the session simply continues without a catalog.
+The Plugin requires a Lorelum CLI release newer than v0.1.0-alpha.2 that ships the `lore hook zcode` command, available as `lore` on `PATH`. It does not bundle, install, or update the CLI; it uses Packs already installed in the local Store. Bun and Node are not required on an ordinary user's machine. On Windows, the Hook wrapper locates Git Bash — from the standard install locations, from `git.exe` on `PATH` (any drive), or from `bash.exe` on `PATH` excluding the WSL stub — to launch its script; without a usable bash the session simply continues without a catalog.
+
+ZCode also dispatches plugin Hooks only when the host Hooks feature is enabled. Set `hooks.enabled: true` in the ZCode host configuration and restart ZCode before expecting Pack discovery; with Hooks disabled the Plugin installs, but the catalog is silently skipped.
 
 If an older or unavailable CLI cannot run `lore hook zcode`, the Hook lets ZCode continue without a catalog. Install a compatible CLI before expecting Pack discovery.
 
@@ -27,7 +29,7 @@ If an older or unavailable CLI cannot run `lore hook zcode`, the Hook lets ZCode
 
 In the ZCode client, open **Settings → Plugin Management → Discover** and press **`+`** to add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace. Then find the **Lorelum** card from the `lorelum-plugins` marketplace and click **Get** to install it. The installed identity is `lorelum-zcode@lorelum-plugins`.
 
-Start a new session. At supported session-start events, the Hook runs `lore hook zcode` to obtain Pack-level discovery data, including each readable current `packRoot`.
+Make sure the host Hooks feature is enabled (`hooks.enabled: true` in the ZCode host configuration, then restart ZCode). Start a new session. At supported session-start events, the Hook runs `lore hook zcode` to obtain Pack-level discovery data, including each readable current `packRoot`.
 
 ## How it works
 
@@ -51,6 +53,6 @@ From the plugin detail view in **Settings → Plugin Management**, uninstall and
 
 ## Troubleshoot
 
-If the catalog is missing, check that `lore` is on the ZCode process's `PATH`, the installed CLI supports `lore hook zcode`, a Pack is installed, and (on Windows) Git Bash is available. An unavailable CLI, an older CLI, or malformed Hook data lets the session continue without injected catalog context; update the CLI before treating a missing catalog as a retrieval result.
+If the catalog is missing, first check that the host Hooks feature is enabled (`hooks.enabled: true` in the ZCode host configuration, with ZCode restarted) — a disabled Hooks feature skips plugin Hooks silently, without any error. Then check that `lore` is on the ZCode process's `PATH`, the installed CLI supports `lore hook zcode`, a Pack is installed, and (on Windows) a usable Git Bash is available (Git installed on any drive is fine; the WSL `bash.exe` under `System32` is not used). An unavailable CLI, an older CLI, or malformed Hook data lets the session continue without injected catalog context; update the CLI before treating a missing catalog as a retrieval result.
 
 Use [Troubleshooting](./troubleshooting) for model and index problems. See [Agent instructions](./agents) for response handling and retrieval behavior.

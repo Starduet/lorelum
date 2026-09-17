@@ -75,4 +75,8 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | bun packages/cli/src/main.ts hook zcode --store-root /absolute/path/to/isolated-store
 ```
 
-For a checkout-backed development install, add the repository root (or the checkout directory) as a marketplace in the ZCode client (**Settings → Plugin Management → Discover → `+`**) and install `lorelum-zcode` from `lorelum-plugins`. To iterate, uninstall and reinstall the Plugin from the Discover tab so ZCode refreshes the cached plugin directory. Verify in a new session that the `/lore` command appears and that a SessionStart boundary injects the `Lorelum Installed Pack Catalog`; the Hook script itself can be exercised directly with `bash plugins/lorelum-zcode/hooks/session-start`.
+For a checkout-backed development install, add the repository root (or the checkout directory) as a marketplace in the ZCode client (**Settings → Plugin Management → Discover → `+`**) and install `lorelum-zcode` from `lorelum-plugins`. To iterate, uninstall and reinstall the Plugin from the Discover tab so ZCode refreshes the cached plugin directory.
+
+ZCode dispatches plugin Hooks only when the host Hooks feature is enabled: set `hooks.enabled: true` in the ZCode host configuration (for example `~/.zcode/cli/config.json`) and restart ZCode before verifying. With Hooks disabled the Plugin still installs and its Skill and command register, but the SessionStart Hook is silently skipped — no error is surfaced anywhere. On Windows the hook wrapper locates Git Bash portably (standard locations, then `git.exe` on `PATH` for any install drive, then `bash.exe` on `PATH` excluding the WSL stub under `System32`), so a checkout verifies the same way regardless of where Git is installed.
+
+Verify in a new session that the `/lore` command appears and that a SessionStart boundary injects the `Lorelum Installed Pack Catalog`; the Hook script itself can be exercised directly with `bash plugins/lorelum-zcode/hooks/session-start`.

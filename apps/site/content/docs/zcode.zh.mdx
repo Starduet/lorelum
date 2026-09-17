@@ -19,7 +19,9 @@ lore --version
 lore pack list --details
 ```
 
-Plugin 需要比 v0.1.0-alpha.2 更新、包含 `lore hook zcode` 命令的 Lorelum CLI 版本，并且运行 ZCode 的环境能从 `PATH` 找到 `lore`。它不内置、安装或更新 CLI，只使用本地 Store 中已安装的 Pack。普通用户机器不需要 Bun 或 Node。Windows 上 Hook 包装脚本会寻找 Git Bash 来执行脚本；找不到 bash 时会话照常继续，只是不注入目录。
+Plugin 需要比 v0.1.0-alpha.2 更新、包含 `lore hook zcode` 命令的 Lorelum CLI 版本，并且运行 ZCode 的环境能从 `PATH` 找到 `lore`。它不内置、安装或更新 CLI，只使用本地 Store 中已安装的 Pack。普通用户机器不需要 Bun 或 Node。Windows 上 Hook 包装脚本会定位 Git Bash——依次从标准安装位置、`PATH` 上的 `git.exe`（任意磁盘）、排除 WSL 后的 `PATH` 上的 `bash.exe` 中查找——来执行脚本；找不到可用的 bash 时会话照常继续，只是不注入目录。
+
+ZCode 还要求宿主 Hooks 功能处于启用状态才会调度插件 Hook。在期望 Pack 发现生效前，请在 ZCode 宿主配置中设置 `hooks.enabled: true` 并重启 ZCode；Hooks 未启用时 Plugin 可以正常安装，但目录会被静默跳过。
 
 如果 CLI 不存在或版本过旧，无法执行 `lore hook zcode`，Hook 会让 ZCode 继续运行，只是不注入目录。安装兼容 CLI 后再使用 Pack 发现功能。
 
@@ -27,7 +29,7 @@ Plugin 需要比 v0.1.0-alpha.2 更新、包含 `lore hook zcode` 命令的 Lore
 
 在 ZCode 客户端打开 **Settings → Plugin Management → Discover**，点击 **`+`** 将 Lorelum 仓库（GitHub 上的 `lorelum/lorelum`，或本地 checkout 目录）添加为 marketplace。然后在 `lorelum-plugins` marketplace 中找到 **Lorelum** 卡片，点击 **Get** 安装。安装后的身份是 `lorelum-zcode@lorelum-plugins`。
 
-启动新会话。在受支持的会话启动事件中，Hook 会运行 `lore hook zcode` 获取 Pack 级元数据，包括每个可直接读取的当前 `packRoot`。
+确认宿主 Hooks 功能已启用（在 ZCode 宿主配置中设置 `hooks.enabled: true`，并重启 ZCode）。启动新会话。在受支持的会话启动事件中，Hook 会运行 `lore hook zcode` 获取 Pack 级元数据，包括每个可直接读取的当前 `packRoot`。
 
 ## 工作方式
 
@@ -51,6 +53,6 @@ Hook 本身不查询、不安装或修改 Pack，也不会下载模型、启动 
 
 ## 排查问题
 
-目录未出现时，检查 ZCode 进程的 `PATH` 中是否有 `lore`、已安装的 CLI 是否支持 `lore hook zcode`、是否已安装 Pack，以及（Windows 上）Git Bash 是否可用。CLI 不可用、版本过旧或 Hook 数据无效时，会话可以在没有注入目录的情况下继续；更新 CLI 后再判断目录缺失是否代表检索不可用。
+目录未出现时，先检查宿主 Hooks 功能是否已启用（ZCode 宿主配置中的 `hooks.enabled: true`，并已重启 ZCode）——Hooks 未启用时会静默跳过插件 Hook，不产生任何报错。再检查 ZCode 进程的 `PATH` 中是否有 `lore`、已安装的 CLI 是否支持 `lore hook zcode`、是否已安装 Pack，以及（Windows 上）是否有可用的 Git Bash（装在任意磁盘都可以；`System32` 下 WSL 的 `bash.exe` 不会被使用）。CLI 不可用、版本过旧或 Hook 数据无效时，会话可以在没有注入目录的情况下继续；更新 CLI 后再判断目录缺失是否代表检索不可用。
 
 模型和索引问题见[故障排查](./troubleshooting)，响应处理和检索行为见 [Agent 使用说明](./agents)。

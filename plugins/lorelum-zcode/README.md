@@ -27,11 +27,13 @@ This Plugin is deliberately CLI-first: it uses the compiled `lore` executable to
 
 This Plugin is a ZCode adapter. Ordinary users need a released Lorelum CLI that ships the `lore hook zcode` ABI (newer than v0.1.0-alpha.2), available as `lore` on `PATH`; the Plugin does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows.
 
-Install from the ZCode client: open **Settings → Plugin Management → Discover**, add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace with the **`+`** button, then install **lorelum-zcode** from `lorelum-plugins`. The installed identity is `lorelum-zcode@lorelum-plugins`. See the [ZCode installation guide](https://lorelum.com/en/docs/zcode) for details and [the development guide](../../docs/development/plugins.md) for a checkout-backed development install.
+Install from the ZCode client: open **Settings → Plugin Management → Discover**, add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace with the **`+`** button, then install **lorelum-zcode** from `lorelum-plugins`. The installed identity is `lorelum-zcode@lorelum-plugins`.
+
+ZCode only dispatches plugin Hooks when the host Hooks feature is enabled. Before expecting a catalog, set `hooks.enabled: true` in the ZCode host configuration (for example `~/.zcode/cli/config.json`) and restart ZCode; with Hooks disabled the Plugin installs, but its SessionStart Hook is silently skipped. See the [ZCode installation guide](https://lorelum.com/en/docs/zcode) for details and [the development guide](../../docs/development/plugins.md) for a checkout-backed development install.
 
 ### Windows notes
 
-On Windows the polyglot Hook wrapper looks for Git Bash in the standard locations, then for `bash` on `PATH`; if none exists, the Hook exits without injecting the Catalog and the session continues normally. The Plugin invokes the compiled `lore` command directly and does not require Bun or Node on the user machine.
+On Windows the polyglot Hook wrapper locates Git Bash portably: it checks the standard `Program Files` locations first, then derives the bash path from `git.exe` on `PATH` (so any install drive works), then accepts any other `bash.exe` on `PATH` except the WSL stub under `System32`, which cannot run Windows-path hook scripts. If no usable bash exists, the Hook exits without injecting the Catalog and the session continues normally. The Plugin invokes the compiled `lore` command directly and does not require Bun or Node on the user machine.
 
 ## Local validation
 

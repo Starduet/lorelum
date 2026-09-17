@@ -11,6 +11,5 @@
   "repository": "https://github.com/lorelum/lorelum",
   "keywords": ["lorelum", "zcode", "practices", "engineering-guidance"],
   "skills": "skills",
-  "commands": "commands",
-  "hooks": "hooks"
+  "commands": "commands"
 }

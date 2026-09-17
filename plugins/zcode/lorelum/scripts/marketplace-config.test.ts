@@ -9,7 +9,7 @@ interface PluginManifest {
   readonly license: string;
   readonly skills?: string;
   readonly commands?: string;
-  readonly hooks?: string;
+  readonly hooks?: unknown;
   readonly mcpServers?: unknown;
 }
 
@@ -40,14 +40,20 @@ test("ZCode marketplace exposes the lorelum Plugin from the lorelum-plugins name
   expect(manifest.description).toContain("ZCode");
   expect(manifest.license).toBe("Apache-2.0");
   expect(manifest.mcpServers).toBeUndefined();
+  // ZCode discovers a Plugin's hooks/hooks.json automatically. A manifest
+  // `hooks: "hooks"` entry means the directory is a Hook file and emits a
+  // plugin_hook_read_failed diagnostic at startup.
+  expect(manifest.hooks).toBeUndefined();
   const componentDirectories = await Promise.all(
-    [manifest.commands, manifest.skills, manifest.hooks].map((component) =>
+    [manifest.commands, manifest.skills].map((component) =>
       stat(join(import.meta.dir, "..", component ?? "")),
     ),
   );
   for (const directory of componentDirectories) {
     expect(directory).toBeTruthy();
   }
+  const hookConfiguration = await stat(join(import.meta.dir, "../hooks/hooks.json"));
+  expect(hookConfiguration.isFile()).toBe(true);
   await readFile(join(import.meta.dir, "../assets/lorelum-icon.svg"), "utf8");
 
   expect(marketplace.name).toBe("lorelum-plugins");

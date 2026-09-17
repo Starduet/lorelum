@@ -50,6 +50,15 @@ marketplace just because the names look compatible. Lorelum remains CLI-first:
 host artifacts use the released CLI plus native Skills/Hooks and do not add a
 local MCP surface.
 
+### ZCode Hook declaration
+
+ZCode automatically loads a Plugin's `hooks/hooks.json`. Do not duplicate that
+discovery path as `"hooks": "hooks"` in `.zcode-plugin/plugin.json`: the
+manifest field means an inline Hook object or an exact Hook-file path, so a
+directory value is diagnosed as an unreadable Hook file. Keep the Hook matcher
+and `process`/`command` configuration only in `hooks/hooks.json` unless a
+verified ZCode manifest contract requires an additional source.
+
 ## Add a host only when it has a real integration need
 
 1. Confirm the host's official install root, manifest/marketplace contract,

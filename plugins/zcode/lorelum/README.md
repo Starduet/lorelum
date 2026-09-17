@@ -11,9 +11,9 @@ The current host integration contract is [agent-integration](../../../openspec/s
 
 The `/lore` command is the explicit entry point: it accepts an optional natural-language question and routes it through the Lorelum Skill.
 
-The bundled runtime integration calls `lore hook zcode`, the versioned ZCode Hook ABI. It runs for supported `SessionStart` sources (`startup`, `resume`, `clear`, `compact`), so the Catalog is regenerated before ZCode continues after compaction. The CLI reads the Hook payload from stdin and writes the ZCode `hookSpecificOutput` envelope directly to stdout. The Hook command goes through a cross-platform polyglot wrapper (`hooks/run-hook.cmd`) that locates bash on Windows and runs the extensionless `hooks/session-start` script on every platform; if no bash is available the Hook exits silently without blocking the session.
+The bundled runtime integration calls `lore hook zcode`, the versioned ZCode Hook ABI. It runs for supported `SessionStart` sources (`startup`, `resume`, `clear`, `compact`), so the Catalog is regenerated before ZCode continues after compaction. The CLI reads the Hook payload from stdin and writes the ZCode `hookSpecificOutput` envelope directly to stdout. The Hook uses ZCode's native `process` form (`lore` with `hook zcode` arguments), so it does not depend on a shell, Git Bash, or a platform wrapper.
 
-The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. If the CLI is unavailable or returns malformed data, the integration writes a diagnostic to stderr and lets the host continue without additional context.
+The integration requests Pack-level discovery data, including each current Pack root, but not Practice bodies or resource content. It does not install or update Packs, or automatically run `lore query` or `lore get`; the Skill makes those task-specific decisions and opening the LocalStore still follows its normal lifecycle. When the Hook ABI runs but cannot process its input or read the Store, it writes a diagnostic to stderr and returns a non-blocking response without additional context.
 
 ## Integration scope
 
@@ -25,15 +25,11 @@ This Plugin is deliberately CLI-first: it uses the compiled `lore` executable to
 
 ## Installation
 
-This Plugin is a ZCode adapter. Ordinary users need a released Lorelum CLI that ships the `lore hook zcode` ABI (newer than v0.1.0-alpha.2), available as `lore` on `PATH`; the Plugin does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows.
+This Plugin is a ZCode adapter. The `lore` command must be available on the `PATH` inherited by ZCode; the Plugin does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows.
 
 Install from the ZCode client: open **Settings → Plugin Management → Discover**, add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace with the **`+`** button, then install **Lorelum** (`lorelum`) from `lorelum-plugins`. The installed identity is `lorelum@lorelum-plugins`, matching the Codex plugin identity.
 
-ZCode only dispatches plugin Hooks when the host Hooks feature is enabled. Before expecting a catalog, set `hooks.enabled: true` in the ZCode host configuration (for example `~/.zcode/cli/config.json`) and restart ZCode; with Hooks disabled the Plugin installs, but its SessionStart Hook is silently skipped. See the [ZCode installation guide](https://lorelum.com/en/docs/zcode) for details and [the development guide](../../../docs/development/plugins.md) for a checkout-backed development install.
-
-### Windows notes
-
-On Windows the polyglot Hook wrapper locates Git Bash portably: it checks the standard `Program Files` locations first, then derives the bash path from `git.exe` on `PATH` (so any install drive works), then accepts any other `bash.exe` on `PATH` except the WSL stub under `System32`, which cannot run Windows-path hook scripts. If no usable bash exists, the Hook exits without injecting the Catalog and the session continues normally. The Plugin invokes the compiled `lore` command directly and does not require Bun or Node on the user machine.
+Plugin Hooks are activated by the installed Plugin; no separate `hooks.enabled` setting is required for this integration. See the [ZCode installation guide](https://lorelum.com/en/docs/zcode) for details and [the development guide](../../../docs/development/plugins.md) for a checkout-backed development install.
 
 ## Local validation
 

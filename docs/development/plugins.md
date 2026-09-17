@@ -73,7 +73,7 @@ repository root in **Settings → Plugin Management → Discover → +**, then
 install **Lorelum** from `lorelum-plugins`. The marketplace entry version and
 `plugins/zcode/lorelum/.zcode-plugin/plugin.json` version must change together.
 
-Enable `hooks.enabled: true`, restart ZCode, then start a new session. Verify
-that `/lore` is present and a SessionStart boundary provides the Pack Catalog.
-For each local iteration, uninstall and reinstall from Discover so ZCode reads
-the updated artifact.
+Plugin Hooks are enabled automatically when the Plugin contributes one. Start
+a new session and verify that `/lore` is present and a SessionStart boundary
+provides the Pack Catalog. For each local iteration, uninstall and reinstall
+from Discover so ZCode reads the updated artifact.

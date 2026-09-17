@@ -38,7 +38,7 @@ plugins/<hostKey>/lorelum/
 
 `skills/lorelum/` 是没有 Hook 注入条件时的 portable Skill core。`plugins/<hostKey>/lorelum/skills/lorelum/` 是该宿主的发布内容：可以针对 injected Catalog 或宿主恢复方式做措辞翻译，但需通过现有 skill-guidance fixtures 保持 query/get/recovery 行为。`lore hook` 的 Catalog 渲染与失败降级逻辑属于 CLI；`lore hook codex` 和 `lore hook zcode` 是很薄的宿主 ABI。
 
-manifest、marketplace registration、Hook command、环境变量、Windows wrapper 和 slash command 都是 native overlay，必须随各宿主目录维护，不尝试合并为一个文件。
+manifest、marketplace registration、Hook command、环境变量、执行模式、宿主确有需要时的平台 wrapper，以及 slash command 都是 native overlay，必须随各宿主目录维护，不尝试合并为一个文件。
 
 ### 3. Registration 遵从官方宿主入口，并将版本视为 release contract
 
@@ -55,7 +55,7 @@ Codex 继续使用 `.agents/plugins/marketplace.json`，只把 source path 更�
 当前 `agent-setup` 与 Codex 页面把用户安装步骤、Agent 运行指令、Catalog 字段、`packRoot`、semantic runtime、Hook ABI、MCP 边界和维护者环境信息交织在一起。实施时以用户任务而非内部组件分页：
 
 1. `agent-setup` 中英文页只回答选择哪种接入、把 Skill/Plugin 装到哪里、如何在新任务中验证它开始工作，以及遇到“Agent 没有调用 Lorelum”时下一步检查什么。
-2. Codex 和 ZCode 中英文页只保留宿主各自的安装、更新、启用前置条件和短故障排查。Codex 用户不需要了解 Bun、MCP、Store、Hook envelope、Catalog 截断或 `packRoot`；ZCode 用户只在排查时看到 Hooks enablement 这一宿主可操作前置条件。
+2. Codex 和 ZCode 中英文页只保留宿主各自的安装、更新、启用前置条件和短故障排查。Codex 和 ZCode 用户都不需要了解 Bun、MCP、Store、Hook envelope、Catalog 截断或 `packRoot`；安装的 ZCode Plugin 会自行激活其 Hook，无需额外启用配置文件 Hook。
 3. `agents.mdx`/`agents.zh.mdx` 是给可执行命令的 Agent 或高级用户复制给 Agent 的 reference。它可以保留精确 CLI/recovery 合同，但 `agent-setup` 和宿主安装页不得要求普通用户阅读它，也不得以它解释安装流程。
 
 安装、升级和故障恢复的普通用户动作仍由站点中英文页承担；CLI ABI、Plugin source root、host Hook payload、Bun/validator 和 no-local-MCP 的理由归属 maintainer docs、current specs 或 Agent-facing reference。这样不会删掉信息，只会把它放回正确读者的位置。

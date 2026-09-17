@@ -5,10 +5,10 @@
         "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
-            "type": "command",
-            "command": "\"${ZCODE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start",
-            "async": false,
-            "timeout": 10
+            "type": "process",
+            "command": "lore",
+            "args": ["hook", "zcode"],
+            "timeoutMs": 10000
           }
         ]
       }

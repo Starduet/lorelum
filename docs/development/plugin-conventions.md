@@ -38,8 +38,8 @@ Keep these inside `plugins/<hostKey>/lorelum/` and maintain them independently:
 
 - manifest location and schema;
 - marketplace registration file and update metadata;
-- Hook matcher, payload/envelope translation, environment variables, and
-  platform wrapper;
+- Hook matcher, payload/envelope translation, environment variables, execution
+  mode, and any platform wrapper the host genuinely requires;
 - commands, rules, agents, UI, or runtime-plugin modules that exist only in
   that host;
 - install, trust, update, and recovery documentation; and

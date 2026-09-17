@@ -29,4 +29,4 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
 ## 宿主差异
 
 - Codex Plugin 在 `hooks.json` 中内联调用 `lore hook codex`，并提供 PowerShell 的 `commandWindows` 变体与 `additionalContextLimit`。
-- ZCode 不支持 `commandWindows` 与 `additionalContextLimit`；ZCode Plugin 通过 `${ZCODE_PLUGIN_ROOT}/hooks/run-hook.cmd` polyglot 包装脚本跨平台调用无扩展名的 `hooks/session-start`（`${ZCODE_PLUGIN_ROOT}` 是宿主原生变量，与 Claude 兼容变量在宿主内展开为同一插件根路径），后者包装 `lore hook zcode` 并在 CLI 缺失或非零退出时兜底输出 `{"continue":true}`。上下文预算由 CLI 渲染器的 4000 字符上限保证，与 codex 共享同一实现。
+- ZCode 不支持 `commandWindows` 与 `additionalContextLimit`；其 Plugin 使用宿主原生的 `process` Hook，以 argv 形式直接运行 `lore hook zcode`，不经过 shell、Git Bash 或平台包装脚本。上下文预算由 CLI 渲染器的 4000 字符上限保证，与 Codex 共享同一实现。

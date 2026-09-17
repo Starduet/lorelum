@@ -6,7 +6,7 @@
 ## 2. Refactor host artifacts and registrations
 
 - [x] 2.1 Move the Codex artifact and its source-only tests from `plugins/lorelum/` to `plugins/codex/lorelum/`; update `.agents/plugins/marketplace.json`, test-relative paths, cachebuster/validator commands, and documentation references; verify Codex still resolves exactly `lorelum@lorelum-plugins` with manifest ID `lorelum` and display name **Lorelum**.
-- [x] 2.2 Add the reviewed ZCode artifact at `plugins/zcode/lorelum/`, preserving its `.zcode-plugin` manifest ID `lorelum`, native Hook wrapper, `/lore` command, Skill, and `lore hook zcode` ABI; verify ZCode-specific configuration and CLI Hook tests pass without changing Codex Hook behavior.
+- [x] 2.2 Add the reviewed ZCode artifact at `plugins/zcode/lorelum/`, preserving its `.zcode-plugin` manifest ID `lorelum`, native direct-process Hook, `/lore` command, Skill, and `lore hook zcode` ABI; verify ZCode-specific configuration and CLI Hook tests pass without changing Codex Hook behavior.
 - [x] 2.3 Create the canonical ZCode root `marketplace.json` with source `./plugins/zcode/lorelum` and a version matching its manifest; remove the noncanonical `.claude-plugin/marketplace.json` registration; verify the marketplace test fails on a missing or mismatched version and Codex registration remains separate.
 
 ## 3. Publish the maintainer convention

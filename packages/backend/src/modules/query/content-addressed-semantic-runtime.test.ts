@@ -108,15 +108,17 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
     await mkdir(join(pack, "practices"), { recursive: true });
     await writeFile(join(root, ".lorelum", "config.yaml"), "base: none\n");
     await writeFile(join(pack, "pack.yaml"), "name: platform\nversion: 1.0.0\n");
-    for (const [name, id] of [
-      ["first", "platform.first"],
-      ["second", "platform.second"],
-    ] as const) {
-      await writeFile(
-        join(pack, "practices", `${name}.md`),
-        `---\nid: ${id}\ntitle: ${name}\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When coalescing a local target.\n---\n${name}\n`,
-      );
-    }
+    await Promise.all(
+      [
+        ["first", "platform.first"],
+        ["second", "platform.second"],
+      ].map(([name, id]) =>
+        writeFile(
+          join(pack, "practices", `${name}.md`),
+          `---\nid: ${id}\ntitle: ${name}\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When coalescing a local target.\n---\n${name}\n`,
+        ),
+      ),
+    );
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
     let documentCalls = 0;
     let releaseFirst!: () => void;

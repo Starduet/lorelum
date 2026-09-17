@@ -27,7 +27,7 @@ This Plugin is deliberately CLI-first: it uses the compiled `lore` executable to
 
 This Plugin is a ZCode adapter. Ordinary users need a released Lorelum CLI that ships the `lore hook zcode` ABI (newer than v0.1.0-alpha.2), available as `lore` on `PATH`; the Plugin does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows.
 
-Install from the ZCode client: open **Settings → Plugin Management → Discover**, add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace with the **`+`** button, then install **lorelum-zcode** from `lorelum-plugins`. The installed identity is `lorelum-zcode@lorelum-plugins`.
+Install from the ZCode client: open **Settings → Plugin Management → Discover**, add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace with the **`+`** button, then install **Lorelum** (`lorelum`) from `lorelum-plugins`. The installed identity is `lorelum@lorelum-plugins`, matching the Codex plugin identity.
 
 ZCode only dispatches plugin Hooks when the host Hooks feature is enabled. Before expecting a catalog, set `hooks.enabled: true` in the ZCode host configuration (for example `~/.zcode/cli/config.json`) and restart ZCode; with Hooks disabled the Plugin installs, but its SessionStart Hook is silently skipped. See the [ZCode installation guide](https://lorelum.com/en/docs/zcode) for details and [the development guide](../../docs/development/plugins.md) for a checkout-backed development install.
 

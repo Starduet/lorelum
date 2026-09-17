@@ -2,7 +2,7 @@
 
 Each direct child of this directory is an independently installable Plugin artifact for one host. It contains the host-specific lifecycle integration, context rendering, Skills, and distribution metadata; it is not a shared Engine layer.
 
-`lorelum/` is the Codex Plugin, published as `lorelum@lorelum-plugins` (Codex marketplace: repo-root `.agents/plugins/marketplace.json`) and shown as **Lorelum**. `lorelum-zcode/` is the ZCode Plugin, published as `lorelum-zcode@lorelum-plugins` (ZCode marketplace: repo-root `.claude-plugin/marketplace.json`); it also provides the `/lore` command. Both call the public `lore` CLI for Pack metadata. They must not import Engine packages, read LocalStore files directly, or reproduce retrieval and ranking behavior.
+`lorelum/` is the Codex Plugin, published as `lorelum@lorelum-plugins` (Codex marketplace: repo-root `.agents/plugins/marketplace.json`) and shown as **Lorelum**. `lorelum-zcode/` is the ZCode Plugin, published as `lorelum@lorelum-plugins` (ZCode marketplace: repo-root `.claude-plugin/marketplace.json`); it also provides the `/lore` command. Both call the public `lore` CLI for Pack metadata. They must not import Engine packages, read LocalStore files directly, or reproduce retrieval and ranking behavior.
 
 ## Current integration boundary
 

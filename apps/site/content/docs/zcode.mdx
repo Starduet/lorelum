@@ -27,7 +27,7 @@ If an older or unavailable CLI cannot run `lore hook zcode`, the Hook lets ZCode
 
 ## Install
 
-In the ZCode client, open **Settings → Plugin Management → Discover** and press **`+`** to add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace. Then find the **Lorelum** card from the `lorelum-plugins` marketplace and click **Get** to install it. The installed identity is `lorelum-zcode@lorelum-plugins`.
+In the ZCode client, open **Settings → Plugin Management → Discover** and press **`+`** to add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace. Then find the **Lorelum** card from the `lorelum-plugins` marketplace and click **Get** to install it. The installed identity is `lorelum@lorelum-plugins`, matching the Codex plugin identity.
 
 Make sure the host Hooks feature is enabled (`hooks.enabled: true` in the ZCode host configuration, then restart ZCode). Start a new session. At supported session-start events, the Hook runs `lore hook zcode` to obtain Pack-level discovery data, including each readable current `packRoot`.
 

@@ -156,7 +156,7 @@ codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
-ZCode 用户在 **Settings → Plugin Management → Discover** 中把 `lorelum/lorelum` 仓库添加为 marketplace，安装 Lorelum Plugin（`lorelum-zcode@lorelum-plugins`）；之后 `/lore` 可针对当前任务或可选的问题检索 Practice。
+ZCode 用户在 **Settings → Plugin Management → Discover** 中把 `lorelum/lorelum` 仓库添加为 marketplace，安装 Lorelum Plugin（`lorelum@lorelum-plugins`）；之后 `/lore` 可针对当前任务或可选的问题检索 Practice。
 
 按提示审阅 Hook，再启动新任务。Hook 通过 `lore pack list --details` 读取已安装 Pack 的元数据，Skill 判断何时查询并读取 Practice。Plugin 不内置 CLI。
 

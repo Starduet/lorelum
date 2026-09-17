@@ -23,7 +23,7 @@ interface MarketplaceConfig {
   readonly plugins: readonly MarketplaceEntry[];
 }
 
-test("ZCode marketplace exposes the lorelum-zcode Plugin from the lorelum-plugins namespace", async () => {
+test("ZCode marketplace exposes the lorelum Plugin from the lorelum-plugins namespace", async () => {
   const [manifest, marketplace] = await Promise.all([
     readFile(join(import.meta.dir, "../.zcode-plugin/plugin.json"), "utf8").then(
       (content) => JSON.parse(content) as PluginManifest,
@@ -33,7 +33,7 @@ test("ZCode marketplace exposes the lorelum-zcode Plugin from the lorelum-plugin
     ),
   ]);
 
-  expect(manifest.name).toBe("lorelum-zcode");
+  expect(manifest.name).toBe("lorelum");
   expect(manifest.name).toMatch(/^[a-z0-9][a-z0-9._-]{0,127}$/);
   expect(manifest.version).toBe("0.1.0-alpha.1");
   expect(manifest.description).toContain("ZCode");
@@ -47,11 +47,11 @@ test("ZCode marketplace exposes the lorelum-zcode Plugin from the lorelum-plugin
 
   expect(marketplace.name).toBe("lorelum-plugins");
   expect(marketplace.plugins).toEqual([
-    expect.objectContaining({ name: "lorelum-zcode", source: "plugins/lorelum-zcode" }),
+    expect.objectContaining({ name: "lorelum", source: "plugins/lorelum-zcode" }),
   ]);
   const marketplaceDirectory = await stat(
     join(import.meta.dir, "../../..", marketplace.plugins[0]!.source),
   );
   expect(marketplaceDirectory.isDirectory()).toBe(true);
-  expect(`${manifest.name}@${marketplace.name}`).toBe("lorelum-zcode@lorelum-plugins");
+  expect(`${manifest.name}@${marketplace.name}`).toBe("lorelum@lorelum-plugins");
 });

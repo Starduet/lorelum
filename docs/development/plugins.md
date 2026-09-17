@@ -1,6 +1,6 @@
 # Plugin development
 
-This guide is for maintainers developing the Lorelum host Plugins from a checkout: **Lorelum** for Codex (`plugins/lorelum`, selector `lorelum@lorelum-plugins`) and **Lorelum for ZCode** (`plugins/lorelum-zcode`, selector `lorelum-zcode@lorelum-plugins`). It deliberately separates a user's public marketplace installation from a checkout-backed development installation: they share the same public selectors, but a host must not have the public and local sources enabled together.
+This guide is for maintainers developing the Lorelum host Plugins from a checkout: **Lorelum** for Codex (`plugins/lorelum`, selector `lorelum@lorelum-plugins`) and **Lorelum for ZCode** (`plugins/lorelum-zcode`, selector `lorelum@lorelum-plugins`). It deliberately separates a user's public marketplace installation from a checkout-backed development installation: they share the same public selectors, but a host must not have the public and local sources enabled together.
 
 ## Source and contract boundary
 
@@ -75,7 +75,7 @@ printf '%s\n' '{"hook_event_name":"SessionStart"}' \
   | bun packages/cli/src/main.ts hook zcode --store-root /absolute/path/to/isolated-store
 ```
 
-For a checkout-backed development install, add the repository root (or the checkout directory) as a marketplace in the ZCode client (**Settings → Plugin Management → Discover → `+`**) and install `lorelum-zcode` from `lorelum-plugins`. To iterate, uninstall and reinstall the Plugin from the Discover tab so ZCode refreshes the cached plugin directory.
+For a checkout-backed development install, add the repository root (or the checkout directory) as a marketplace in the ZCode client (**Settings → Plugin Management → Discover → `+`**) and install **Lorelum** (`lorelum`) from `lorelum-plugins`. To iterate, uninstall and reinstall the Plugin from the Discover tab so ZCode refreshes the cached plugin directory.
 
 ZCode dispatches plugin Hooks only when the host Hooks feature is enabled: set `hooks.enabled: true` in the ZCode host configuration (for example `~/.zcode/cli/config.json`) and restart ZCode before verifying. With Hooks disabled the Plugin still installs and its Skill and command register, but the SessionStart Hook is silently skipped — no error is surfaced anywhere. On Windows the hook wrapper locates Git Bash portably (standard locations, then `git.exe` on `PATH` for any install drive, then `bash.exe` on `PATH` excluding the WSL stub under `System32`), so a checkout verifies the same way regardless of where Git is installed.
 

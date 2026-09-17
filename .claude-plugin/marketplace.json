@@ -2,7 +2,7 @@
   "name": "lorelum-plugins",
   "plugins": [
     {
-      "name": "lorelum-zcode",
+      "name": "lorelum",
       "source": "plugins/lorelum-zcode",
       "description": "On-demand engineering Practices for ZCode: a compact installed Knowledge Pack catalog with targeted semantic retrieval.",
       "author": {

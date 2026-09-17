@@ -157,7 +157,7 @@ codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
-For ZCode, add the `lorelum/lorelum` repository as a marketplace in **Settings → Plugin Management → Discover** and install the Lorelum Plugin (`lorelum-zcode@lorelum-plugins`); `/lore` then retrieves Practices for the current task or an optional question.
+For ZCode, add the `lorelum/lorelum` repository as a marketplace in **Settings → Plugin Management → Discover** and install the Lorelum Plugin (`lorelum@lorelum-plugins`); `/lore` then retrieves Practices for the current task or an optional question.
 
 Review the Hook when prompted, then start a new task. The Hook reads installed Pack metadata with `lore pack list --details`; the Skill decides when to make its targeted semantic query and read Practices. The Plugin does not bundle the CLI. Other command-capable agents use the generic Lorelum Skill, which establishes a Pack Catalog with `lore pack list --details` only when the current context does not already contain one.
 

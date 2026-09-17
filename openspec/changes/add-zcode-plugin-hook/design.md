@@ -26,11 +26,11 @@
 
 ### 1. 插件身份与 marketplace 布局
 
-**Proposed:** 目录 `plugins/lorelum-zcode/`，manifest name `lorelum-zcode`；仓库根新增 `.claude-plugin/marketplace.json`，marketplace 名称 `lorelum-plugins`，唯一条目 `lorelum-zcode` → `plugins/lorelum-zcode`；完整 selector `lorelum-zcode@lorelum-plugins`。Codex 侧 `.agents/plugins/marketplace.json` 保持不动。
+**Proposed:** 目录 `plugins/lorelum-zcode/`（issue 验收标准规定），manifest name `lorelum`；仓库根新增 `.claude-plugin/marketplace.json`，marketplace 名称 `lorelum-plugins`，唯一条目 `lorelum` → `plugins/lorelum-zcode`；完整 selector `lorelum@lorelum-plugins`。Codex 侧 `.agents/plugins/marketplace.json` 保持不动。
 
-**Why this over alternatives:** ZCode 添加 marketplace 时只探测 `.claude-plugin/marketplace.json`，且其 source schema（directory/github/git/url）与 Codex 的 `{source:"local", path}` + `policy` 不兼容，合并成一份文件会迫使两个宿主解析对方的专有字段。插件名用 `lorelum-zcode` 而非复用 `lorelum`：issue 明确要求独立目录 `plugins/lorelum-zcode/`，且若用户在同一宿主同时添加两个来源，同名不同实现的 Plugin ID 会造成身份冲突；`lorelum-zcode@lorelum-plugins` 保持与 Codex 一致的品牌 namespace，同时身份无歧义。
+**Why this over alternatives:** ZCode 添加 marketplace 时只探测 `.claude-plugin/marketplace.json`，且其 source schema（directory/github/git/url）与 Codex 的 `{source:"local", path}` + `policy` 不兼容，合并成一份文件会迫使两个宿主解析对方的专有字段。插件名沿用 `lorelum`（review 决定）：插件名是品牌标识而非宿主标识，Codex 插件名不带 `-codex` 后缀，ZCode 侧同名让两宿主的 selector（`lorelum@lorelum-plugins`）与 skill 引用（`lorelum:lorelum`）完全同形；宿主差异由源目录（issue 规定的 `plugins/lorelum-zcode/`）与各自的 marketplace 文件承载。理论上存在同名歧义路径：ZCode 的 manifest 回退探测能加载 `.codex-plugin` 布局，若用户以 workspace `plugins.dirs` 或自制 marketplace 把 Codex 插件目录手动加载进 ZCode，会出现两个 `lorelum` 插件的 skill 引用碰撞——但正规安装路径（把 lorelum 仓库添加为 marketplace）只暴露 ZCode 插件，碰撞需要刻意误配置，命名一致性优先。
 
-**Alternatives considered:** 复用 `.agents/plugins/marketplace.json`（ZCode 不探测该路径，且 schema 不兼容）；插件名沿用 `lorelum`（依赖 ZCode 的 manifest 回退探测加载 `.codex-plugin`，但两宿主插件内容必然分叉，留下身份冲突隐患）。
+**Alternatives considered:** 复用 `.agents/plugins/marketplace.json`（ZCode 不探测该路径，且 schema 不兼容）；单目录双宿主——不加独立目录、让 ZCode 经 manifest 回退探测直接加载 `plugins/lorelum/` 的 `.codex-plugin`（依赖回退位而非原生首选位，且两宿主插件内容必然分叉——hook ABI、`/lore` 命令、hooks.json 能力集都不同——无法共用一份产物）。
 
 ### 2. `lore hook zcode` 作为独立 raw ABI，共享核心抽取
 

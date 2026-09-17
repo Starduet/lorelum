@@ -27,7 +27,7 @@ ZCode 还要求宿主 Hooks 功能处于启用状态才会调度插件 Hook。�
 
 ## 安装
 
-在 ZCode 客户端打开 **Settings → Plugin Management → Discover**，点击 **`+`** 将 Lorelum 仓库（GitHub 上的 `lorelum/lorelum`，或本地 checkout 目录）添加为 marketplace。然后在 `lorelum-plugins` marketplace 中找到 **Lorelum** 卡片，点击 **Get** 安装。安装后的身份是 `lorelum-zcode@lorelum-plugins`。
+在 ZCode 客户端打开 **Settings → Plugin Management → Discover**，点击 **`+`** 将 Lorelum 仓库（GitHub 上的 `lorelum/lorelum`，或本地 checkout 目录）添加为 marketplace。然后在 `lorelum-plugins` marketplace 中找到 **Lorelum** 卡片，点击 **Get** 安装。安装后的身份是 `lorelum@lorelum-plugins`，与 Codex 插件身份一致。
 
 确认宿主 Hooks 功能已启用（在 ZCode 宿主配置中设置 `hooks.enabled: true`，并重启 ZCode）。启动新会话。在受支持的会话启动事件中，Hook 会运行 `lore hook zcode` 获取 Pack 级元数据，包括每个可直接读取的当前 `packRoot`。
 

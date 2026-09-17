@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { createEmbeddingProfile } from "../semantic";
 import { contentSemanticArtifactId, contentSemanticIndexPaths } from "./cache";
+import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
 import { createContentAddressedSemanticServices } from "./semantic";
 
@@ -12,7 +13,7 @@ const encodingId = "a".repeat(64);
 
 async function fixture(run: (root: string, cache: string) => Promise<void>): Promise<void> {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-project-semantic-")),
+    createIsolatedProjectSandbox("lorelum-project-semantic-"),
     mkdtemp(join(tmpdir(), "lorelum-project-semantic-cache-")),
   ]);
   try {
@@ -81,8 +82,8 @@ test("builds and queries one immutable ProjectContext semantic artifact", () =>
 
 test("uses one semantic artifact identity for equivalent directory snapshots", async () => {
   const [first, second, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-project-semantic-first-")),
-    mkdtemp(join(tmpdir(), "lorelum-project-semantic-second-")),
+    createIsolatedProjectSandbox("lorelum-project-semantic-first-"),
+    createIsolatedProjectSandbox("lorelum-project-semantic-second-"),
     mkdtemp(join(tmpdir(), "lorelum-project-semantic-cache-")),
   ]);
   try {

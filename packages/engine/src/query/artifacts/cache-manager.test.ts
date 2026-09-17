@@ -13,6 +13,7 @@ import {
 } from "./cache";
 import { contentArtifactCacheStatus, pruneContentArtifactCache } from "./cache-manager";
 import { queryContentAddressedKeyword } from "../keyword/content-addressed-query";
+import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
 import { ContentAddressedSemanticProgressService } from "./semantic-progress";
 import { projectSemanticPractice } from "../semantic/projection";
@@ -22,7 +23,7 @@ const encodingId = "c".repeat(64);
 
 test("reports and explicitly prunes only derived project cache state", async () => {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-project-cache-manager-")),
+    createIsolatedProjectSandbox("lorelum-project-cache-manager-"),
     mkdtemp(join(tmpdir(), "lorelum-project-cache-manager-root-")),
   ]);
   try {
@@ -90,7 +91,7 @@ Keep source data outside the cache.
 
 test("prune preserves a leased partial-query artifact and its shared vectors", async () => {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-project-cache-lease-")),
+    createIsolatedProjectSandbox("lorelum-project-cache-lease-"),
     mkdtemp(join(tmpdir(), "lorelum-project-cache-lease-root-")),
   ]);
   try {
@@ -166,7 +167,7 @@ Keep derived vectors while a reader holds a lease.
 
 test("catalog, vectors, and semantic artifacts retain no ProjectContext source path or body", async () => {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-project-cache-private-")),
+    createIsolatedProjectSandbox("lorelum-project-cache-private-"),
     mkdtemp(join(tmpdir(), "lorelum-project-cache-private-root-")),
   ]);
   try {

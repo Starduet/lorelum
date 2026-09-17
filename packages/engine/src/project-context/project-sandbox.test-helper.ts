@@ -1,4 +1,4 @@
-import { lstat, mkdir, mkdtemp } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, parse, resolve } from "node:path";
 
@@ -18,7 +18,9 @@ async function isProjectLayer(directory: string): Promise<boolean> {
 }
 
 async function hasProjectLayerAncestor(directory: string): Promise<boolean> {
-  for (let current = directory; ; current = dirname(current)) {
+  const start = await realpath(directory).catch(() => undefined);
+  if (start === undefined) return true;
+  for (let current = start; ; current = dirname(current)) {
     // eslint-disable-next-line no-await-in-loop -- ancestor probing is ordered from the leaf upward.
     if (await isProjectLayer(current)) return true;
     if (current === parse(current).root) return false;

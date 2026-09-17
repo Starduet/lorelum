@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createEmbeddingProfile } from "../semantic";
+import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
 import { ContentAddressedSemanticProgressService } from "./semantic-progress";
 import { contentArtifactVectorCachePaths } from "./cache";
@@ -20,7 +21,7 @@ async function waitFor(check: () => Promise<boolean>): Promise<void> {
 
 async function setup(): Promise<{ root: string; cache: string }> {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-project-progress-")),
+    createIsolatedProjectSandbox("lorelum-project-progress-"),
     mkdtemp(join(tmpdir(), "lorelum-project-progress-cache-")),
   ]);
   const pack = join(root, ".lorelum", "packs", "platform");

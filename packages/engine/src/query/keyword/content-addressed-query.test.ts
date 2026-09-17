@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { contentKeywordArtifactId, contentKeywordIndexPaths } from "../artifacts/cache";
 import { queryContentAddressedKeyword } from "./content-addressed-query";
+import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
 
 async function project(root: string, title: string): Promise<void> {
@@ -32,7 +33,7 @@ async function resolve(root: string) {
 }
 
 test("queries a content-addressed keyword artifact outside the project source tree", async () => {
-  const root = await mkdtemp(join(tmpdir(), "lorelum-project-keyword-"));
+  const root = await createIsolatedProjectSandbox("lorelum-project-keyword-");
   const cache = await mkdtemp(join(tmpdir(), "lorelum-project-cache-"));
   try {
     await project(root, "Content addressed query cache");
@@ -51,8 +52,8 @@ test("queries a content-addressed keyword artifact outside the project source tr
 });
 
 test("equivalent directories converge on the same immutable keyword artifact", async () => {
-  const first = await mkdtemp(join(tmpdir(), "lorelum-project-keyword-first-"));
-  const second = await mkdtemp(join(tmpdir(), "lorelum-project-keyword-second-"));
+  const first = await createIsolatedProjectSandbox("lorelum-project-keyword-first-");
+  const second = await createIsolatedProjectSandbox("lorelum-project-keyword-second-");
   const cache = await mkdtemp(join(tmpdir(), "lorelum-project-cache-"));
   try {
     await Promise.all([
@@ -76,7 +77,7 @@ test("equivalent directories converge on the same immutable keyword artifact", a
 });
 
 test("corrupt ProjectContext keyword artifacts are discarded and rebuilt from canonical source", async () => {
-  const root = await mkdtemp(join(tmpdir(), "lorelum-project-keyword-corrupt-"));
+  const root = await createIsolatedProjectSandbox("lorelum-project-keyword-corrupt-");
   const cache = await mkdtemp(join(tmpdir(), "lorelum-project-cache-corrupt-"));
   try {
     await project(root, "Recoverable keyword artifact");

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createEmbeddingProfile, type EffectivePractice } from "@lorelum/engine";
 
 import { canonicalizePractice } from "../../../../engine/src/local-store/model/canonical-practice";
+import { createIsolatedProjectSandbox } from "../../../../engine/src/project-context/project-sandbox.test-helper";
 
 import { ContentAddressedSemanticRuntime } from "./content-addressed-semantic-runtime";
 import { SemanticOperationJournal } from "./project-operation-journal";
@@ -26,7 +27,7 @@ function storePractice(id: string, body = id): EffectivePractice {
 
 test("builds a project semantic artifact during the query wait budget", async () => {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-backend-project-runtime-")),
+    createIsolatedProjectSandbox("lorelum-backend-project-runtime-"),
     mkdtemp(join(tmpdir(), "lorelum-backend-project-runtime-cache-")),
   ]);
   try {
@@ -98,7 +99,7 @@ test("builds a project semantic artifact during the query wait budget", async ()
 
 test("coalesces rapid edits for one directory to the latest semantic target", async () => {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-backend-project-coalesce-")),
+    createIsolatedProjectSandbox("lorelum-backend-project-coalesce-"),
     mkdtemp(join(tmpdir(), "lorelum-backend-project-coalesce-cache-")),
   ]);
   try {
@@ -205,7 +206,7 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
 
 test("persists each completed ProjectContext batch for restart-safe source reattachment", async () => {
   const [root, cache] = await Promise.all([
-    mkdtemp(join(tmpdir(), "lorelum-backend-project-progress-")),
+    createIsolatedProjectSandbox("lorelum-backend-project-progress-"),
     mkdtemp(join(tmpdir(), "lorelum-backend-project-progress-cache-")),
   ]);
   const runtime = await realpath(

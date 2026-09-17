@@ -121,6 +121,10 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
     );
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
     let documentCalls = 0;
+    let markFirstDocumentStarted!: () => void;
+    const firstDocumentStarted = new Promise<void>((resolve) => {
+      markFirstDocumentStarted = resolve;
+    });
     let releaseFirst!: () => void;
     const firstBatch = new Promise<void>((resolve) => {
       releaseFirst = resolve;
@@ -145,7 +149,10 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
         async embed(inputs) {
           if (inputs[0]?.startsWith("Practice:")) {
             documentCalls += 1;
-            if (documentCalls === 1) await firstBatch;
+            if (documentCalls === 1) {
+              markFirstDocumentStarted();
+              await firstBatch;
+            }
           }
           return { encodingId, vectors: inputs.map(() => [1, 0]) };
         },
@@ -174,10 +181,7 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
         { maxWaitMs: 0, minCoveragePercent: 100 },
       ),
     ).resolves.toMatchObject({ state: "indexing" });
-    for (let attempt = 0; attempt < 50 && documentCalls !== 1; attempt += 1) {
-      // eslint-disable-next-line no-await-in-loop -- bounded test synchronization.
-      await Bun.sleep(5);
-    }
+    await firstDocumentStarted;
     expect(documentCalls).toBe(1);
     const original = await Bun.file(firstPath).text();
     await writeFile(
@@ -218,10 +222,11 @@ test("persists each completed ProjectContext batch for restart-safe source reatt
     const pack = join(root, ".lorelum", "packs", "platform");
     await mkdir(join(pack, "practices"), { recursive: true });
     await writeFile(join(pack, "pack.yaml"), "name: platform\nversion: 1.0.0\n");
-    for (const id of ["platform.first", "platform.second"]) {
-      await writeFile(
-        join(pack, "practices", `${id}.md`),
-        `---
+    await Promise.all(
+      ["platform.first", "platform.second"].map((id) =>
+        writeFile(
+          join(pack, "practices", `${id}.md`),
+          `---
 id: ${id}
 title: ${id}
 stage: implementation
@@ -231,14 +236,19 @@ applies_when: When persisting an incremental target.
 ---
 ${id}
 `,
-      );
-    }
+        ),
+      ),
+    );
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
     let releaseSecond!: () => void;
     const second = new Promise<void>((resolve) => {
       releaseSecond = resolve;
     });
     let documentCalls = 0;
+    let markSecondDocumentStarted!: () => void;
+    const secondDocumentStarted = new Promise<void>((resolve) => {
+      markSecondDocumentStarted = resolve;
+    });
     const journal = new SemanticOperationJournal(runtime);
     const service = new ContentAddressedSemanticRuntime(
       {
@@ -259,7 +269,10 @@ ${id}
         maxBatchSize: 1,
         async embed(inputs) {
           documentCalls += inputs.filter((input) => input.startsWith("Practice:")).length;
-          if (documentCalls === 2) await second;
+          if (documentCalls === 2) {
+            markSecondDocumentStarted();
+            await second;
+          }
           return { encodingId, vectors: inputs.map(() => [1, 0]) };
         },
       },
@@ -286,10 +299,7 @@ ${id}
       { maxWaitMs: 0, minCoveragePercent: 100 },
     );
     if (!("operationId" in result)) throw new Error("Expected an accepted index operation");
-    for (let attempt = 0; attempt < 50 && documentCalls < 2; attempt += 1) {
-      // eslint-disable-next-line no-await-in-loop -- bounded synchronization with the second batch.
-      await Bun.sleep(5);
-    }
+    await secondDocumentStarted;
     await expect(journal.findById(result.operationId)).resolves.toMatchObject({
       state: "building",
       indexedPracticeCount: 1,
@@ -517,22 +527,30 @@ test("joins one content-addressed operation for equivalent ordinary directories"
     mkdtemp(join(tmpdir(), "lorelum-backend-equivalent-cache-")),
   ]);
   try {
-    for (const root of [first, second]) {
-      const pack = join(root, ".lorelum", "packs", "platform");
-      await mkdir(join(pack, "practices"), { recursive: true });
-      await writeFile(join(root, ".lorelum", "config.yaml"), "base: none\n");
-      await writeFile(join(pack, "pack.yaml"), "name: platform\nversion: 1.0.0\n");
-      await writeFile(
-        join(pack, "practices", "shared.md"),
-        "---\nid: platform.shared\ntitle: Shared\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When validating shared content addressing.\n---\nSame Practice body.\n",
-      );
-    }
+    await Promise.all(
+      [first, second].map(async (root) => {
+        const pack = join(root, ".lorelum", "packs", "platform");
+        await mkdir(join(pack, "practices"), { recursive: true });
+        await Promise.all([
+          writeFile(join(root, ".lorelum", "config.yaml"), "base: none\n"),
+          writeFile(join(pack, "pack.yaml"), "name: platform\nversion: 1.0.0\n"),
+          writeFile(
+            join(pack, "practices", "shared.md"),
+            "---\nid: platform.shared\ntitle: Shared\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When validating shared content addressing.\n---\nSame Practice body.\n",
+          ),
+        ]);
+      }),
+    );
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
     let release!: () => void;
     const block = new Promise<void>((resolve) => {
       release = resolve;
     });
     let documentCalls = 0;
+    let markDocumentStarted!: () => void;
+    const documentStarted = new Promise<void>((resolve) => {
+      markDocumentStarted = resolve;
+    });
     const runtime = new ContentAddressedSemanticRuntime(
       {
         async readEffectivePracticeSnapshot() {
@@ -552,6 +570,7 @@ test("joins one content-addressed operation for equivalent ordinary directories"
         maxBatchSize: 1,
         async embed(inputs) {
           documentCalls += inputs.length;
+          markDocumentStarted();
           await block;
           return { encodingId, vectors: inputs.map(() => [1, 0]) };
         },
@@ -578,9 +597,7 @@ test("joins one content-addressed operation for equivalent ordinary directories"
       { text: "shared" },
       policy,
     );
-    for (let attempt = 0; attempt < 50 && documentCalls !== 1; attempt += 1) {
-      await Bun.sleep(5);
-    }
+    await documentStarted;
     const secondResult = await runtime.query(
       { rootPath: join(second, "store") },
       { kind: "project", projectRoot: second, cacheRoot: cache },

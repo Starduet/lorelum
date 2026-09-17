@@ -13,7 +13,7 @@
 ## 3. ZCode Plugin 与 marketplace
 
 - [x] 3.1 创建 `plugins/lorelum-zcode/.zcode-plugin/plugin.json`（name `lorelum-zcode`、version、`commands`/`skills`/`hooks` 相对路径）与 `commands/lore.md`（`/lore`，argument-hint + `skills: lorelum` + `$ARGUMENTS` 空参/有参说明） — verify manifest `name` 匹配 `^[a-z0-9][a-z0-9._-]{0,127}$` 且组件目录存在
-- [x] 3.2 创建 `hooks/hooks.json`（SessionStart、matcher `startup|resume|clear|compact`、`"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start`、`timeout: 10`）、polyglot `hooks/run-hook.cmd` 与无扩展名 `hooks/session-start`（包装 `lore hook zcode`，失败回退 `{"continue":true}`，恒退出 0，stdin 直通） — verify `bash plugins/lorelum-zcode/hooks/session-start` 在 PATH 上有 `lore` 时输出 envelope、无 `lore` 时输出 `{"continue":true}`
+- [x] 3.2 创建 `hooks/hooks.json`（SessionStart、matcher `startup|resume|clear|compact`、`"${ZCODE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start`、`timeout: 10`）、polyglot `hooks/run-hook.cmd` 与无扩展名 `hooks/session-start`（包装 `lore hook zcode`，失败回退 `{"continue":true}`，恒退出 0，stdin 直通） — verify `bash plugins/lorelum-zcode/hooks/session-start` 在 PATH 上有 `lore` 时输出 envelope、无 `lore` 时输出 `{"continue":true}`
 - [x] 3.3 创建 `skills/lorelum/SKILL.md` 与 `references/semantic-query-recovery.md`（按 Codex 插件 Skill 结构做 ZCode 语境翻译），复制品牌图标到 `assets/`，编写插件 `README.md` — verify Skill 覆盖 `lore pack list --details`、`lore query`、`lore get` 的使用时机与恢复路径
 - [x] 3.4 新增仓库根 `.claude-plugin/marketplace.json`（name `lorelum-plugins`、唯一条目 `lorelum-zcode` → `plugins/lorelum-zcode`），更新 `plugins/README.md` 为双宿主描述 — verify Codex 侧 `.agents/plugins/marketplace.json` 无 diff
 

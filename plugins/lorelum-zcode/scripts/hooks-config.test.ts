@@ -35,7 +35,7 @@ test("restores the Pack Catalog through SessionStart via the cross-platform wrap
       hooks: [
         {
           type: "command",
-          command: '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start',
+          command: '"${ZCODE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start',
           async: false,
           timeout: 10,
         },
@@ -107,7 +107,7 @@ test.skipIf(process.platform === "win32")(
         env: {
           ...process.env,
           PATH: `${directory}:${process.env.PATH ?? ""}`,
-          CLAUDE_PLUGIN_ROOT: join(import.meta.dir, ".."),
+          ZCODE_PLUGIN_ROOT: join(import.meta.dir, ".."),
         },
         stdin: "pipe",
         stdout: "pipe",
@@ -147,7 +147,7 @@ test.skipIf(process.platform === "win32")(
         env: {
           ...process.env,
           PATH: `${directory}:${process.env.PATH ?? ""}`,
-          CLAUDE_PLUGIN_ROOT: join(import.meta.dir, ".."),
+          ZCODE_PLUGIN_ROOT: join(import.meta.dir, ".."),
         },
         stdout: "pipe",
         stderr: "pipe",

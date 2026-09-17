@@ -53,6 +53,6 @@ lore get <practice-id>
 
 Lorelum 负责检索和排序 Practice。调用方负责描述任务与时刻、读取指导，并结合仓库事实和用户要求判断如何应用。
 
-Lorelum Core 不管理任务、不读取完整会话，也不自行推断宿主生命周期事件。[Codex Plugin](./codex) 在受支持的会话事件中提供 Pack 目录，但目录出现不代表 Agent 已遵循所有相关 Practice。[为什么需要 Lorelum](./why-lorelum)说明它要解决的知识与判断缺位。
+Lorelum Core 不管理任务、不读取完整会话，也不自行推断宿主生命周期事件。[Codex 和 ZCode Plugin](./agent-setup) 会在各自受支持的会话事件中提供 Pack 目录，但目录出现不代表 Agent 已遵循所有相关 Practice。[为什么需要 Lorelum](./why-lorelum)说明它要解决的知识与判断缺位。
 
 > Lorelum 处于 public alpha。更新共享环境前，请阅读 [Alpha 兼容性](./alpha)。

@@ -1,29 +1,26 @@
 ---
 title: Agent integration
-description: Add the Lorelum Skill to your coding agent and verify retrieval.
+description: Add Lorelum to your coding agent, then use it in a new task.
 icon: Bot
 ---
 
-The Lorelum Skill tells an agent when engineering guidance may help, how to describe the task and moment, and why it should read a Practice before applying it. The host discovers the Skill; the `lore` CLI retrieves the knowledge.
+Lorelum helps your coding agent find relevant engineering guidance while it
+works. Complete [Quickstart](./quickstart) first so the `lore` command and at
+least one Pack are available to the agent.
 
-Complete the [Quickstart](./quickstart) first. The CLI and at least one Pack must be available in the environment where the agent runs commands.
+## Choose your agent
 
-## Choose an integration
-
-| Agent | Integration |
+| Agent | Recommended setup |
 | --- | --- |
-| Codex | [Official Plugin](./codex), including the Skill and an installed-Pack catalog Hook |
-| Claude Code | Project or personal Skill |
-| Cursor | Project Skill |
-| Other command-capable agents | Host-supported Skill or project instructions |
+| Codex | Install the [Lorelum Plugin](./codex). |
+| ZCode | Install the [Lorelum Plugin](./zcode). |
+| Claude Code | Add the Lorelum Skill to the project or your personal Skills folder. |
+| Cursor | Add the Lorelum Skill to the project. |
+| Another command-capable agent | Use its supported Skill mechanism or project instructions. |
 
-## Codex
+## Add the Skill
 
-Install the [Codex Plugin](./codex). It supplies the Skill and makes installed Packs discoverable at supported session events, including each Pack's readable current `packRoot`. The Catalog does not inject Practice bodies or resource contents. The Plugin uses your existing CLI and Store; install those separately.
-
-## Claude Code
-
-Download the [Lorelum Skill](https://github.com/lorelum/lorelum/blob/main/skills/lorelum/SKILL.md) into the project's Skill directory:
+For Claude Code, add the Skill to this project:
 
 ```sh
 mkdir -p .claude/skills/lorelum
@@ -31,11 +28,10 @@ curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/skills/lorelum
   -o .claude/skills/lorelum/SKILL.md
 ```
 
-For personal scope, use `~/.claude/skills/lorelum/SKILL.md`. Follow the host's [Skills documentation](https://code.claude.com/docs/en/skills) for discovery and invocation.
+For personal Claude Code use, put the same file in
+`~/.claude/skills/lorelum/SKILL.md`.
 
-## Cursor
-
-Install the same Skill in the project:
+For Cursor, add it to the project:
 
 ```sh
 mkdir -p .cursor/skills/lorelum
@@ -43,26 +39,27 @@ curl -fsSL https://raw.githubusercontent.com/lorelum/lorelum/main/skills/lorelum
   -o .cursor/skills/lorelum/SKILL.md
 ```
 
-See [Cursor Skills](https://cursor.com/docs/skills) for host-specific behavior.
+## First use
 
-## Other agents
-
-Agents that can execute commands can use the same CLI. Install the Skill through the host's supported mechanism. If the host uses project instructions instead, include the Skill's retrieval instructions there.
-
-The essential behavior is to describe the task and current decision in `lore query`, read relevant results with `lore get`, and apply the guidance within its stated conditions. When a retrieved Practice contains a `resource:` link, the installed Skill explains how to resolve it from the returned mutable current `packRoot`, read references on demand, copy assets before editing, and explicitly run a script only under task authorization. See [Agent instructions](./agents) for the full execution contract.
-
-## Verify the integration
-
-Start a new task and ask:
+Start a new task and tell your agent:
 
 ```text
-Use Lorelum to find engineering guidance for the current change.
-Read a relevant Practice and explain how it affects the implementation
-or verification decision.
+Use Lorelum to find engineering guidance for this task before you finalize the plan.
 ```
 
-Check the agent's actual commands: it should retrieve results and read the full body of any Practice it applies. If the command is unavailable, run `lore --version` in the agent's environment and check `PATH`. If the query is preparing or fails, follow [Troubleshooting](./troubleshooting).
+The agent should use the installed guidance when it can help with a design,
+implementation, verification, or recovery decision.
 
-## Update the Skill
+## If it does not work
 
-For a file-based installation, review the updated Skill and download it again to the same location. For Codex, update the Plugin instead. Skill updates do not update the CLI or installed Packs.
+1. Check that `lore --version` works in the environment used by the agent.
+2. Check that the Skill or Plugin is installed and enabled.
+3. Start a new task after installing or updating a Plugin.
+4. Use [Troubleshooting](./troubleshooting) if Lorelum starts but cannot
+   retrieve guidance.
+
+## Update
+
+For a file-based Skill, replace `SKILL.md` with the latest version. For Codex
+and ZCode, update the Plugin in the host application; their installation pages
+explain the exact steps.

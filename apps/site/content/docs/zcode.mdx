@@ -1,58 +1,50 @@
 ---
 title: ZCode
-description: Install the official Plugin to discover Packs and retrieve Practices in ZCode.
+description: Install Lorelum in ZCode and use the /lore command in a new task.
 icon: Plug
 ---
 
-The Lorelum Plugin gives ZCode an installed-Pack catalog, a Skill, and a `/lore` command for retrieving engineering Practices. The catalog helps ZCode discover available knowledge; the Skill guides targeted queries and full Practice reads.
+The Lorelum Plugin adds engineering guidance and the `/lore` command to ZCode.
 
-## Scope
+## Before you start
 
-The integration is deliberately CLI-first: it uses the released `lore` executable, the Lorelum Skill, the `/lore` command, and the ZCode Hook. It does not run a local MCP server or expose local MCP tools. A remote-retrieval MCP service is a separate future product boundary, not a local Plugin convenience.
+Complete [Quickstart](./quickstart). The `lore` command must be available to
+ZCode, and you need at least one installed Pack.
 
-## Prerequisites
-
-Complete [Quickstart](./quickstart), then check these commands in the environment that runs ZCode:
-
-```sh
-lore --version
-lore pack list --details
-```
-
-The Plugin requires a Lorelum CLI release newer than v0.1.0-alpha.2 that ships the `lore hook zcode` command, available as `lore` on `PATH`. It does not bundle, install, or update the CLI; it uses Packs already installed in the local Store. Bun and Node are not required on an ordinary user's machine. On Windows, the Hook wrapper locates Git Bash — from the standard install locations, from `git.exe` on `PATH` (any drive), or from `bash.exe` on `PATH` excluding the WSL stub — to launch its script; without a usable bash the session simply continues without a catalog.
-
-ZCode also dispatches plugin Hooks only when the host Hooks feature is enabled. Set `hooks.enabled: true` in the ZCode host configuration and restart ZCode before expecting Pack discovery; with Hooks disabled the Plugin installs, but the catalog is silently skipped.
-
-If an older or unavailable CLI cannot run `lore hook zcode`, the Hook lets ZCode continue without a catalog. Install a compatible CLI before expecting Pack discovery.
+ZCode must have Plugin Hooks enabled. In its host configuration, set
+`hooks.enabled` to `true`, then restart ZCode.
 
 ## Install
 
-In the ZCode client, open **Settings → Plugin Management → Discover** and press **`+`** to add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace. Then find the **Lorelum** card from the `lorelum-plugins` marketplace and click **Get** to install it. The installed identity is `lorelum@lorelum-plugins`, matching the Codex plugin identity.
+1. In ZCode, open **Settings → Plugin Management → Discover**.
+2. Select **+** and add the Lorelum repository (`lorelum/lorelum`) or your
+   local checkout as a marketplace.
+3. Install **Lorelum** from `lorelum-plugins`.
+4. Start a new session.
 
-Make sure the host Hooks feature is enabled (`hooks.enabled: true` in the ZCode host configuration, then restart ZCode). Start a new session. At supported session-start events, the Hook runs `lore hook zcode` to obtain Pack-level discovery data, including each readable current `packRoot`.
+## Use Lorelum
 
-## How it works
+Check that `/lore` appears in the command menu. You can run:
 
-1. At supported session-start events (startup, resume, clear, and compact), the Hook supplies a compact catalog of installed Packs. It can include Pack names, versions, descriptions, declared stack scope, and readable current `packRoot` locators.
-2. The Skill uses that catalog as a relevance hint for a material task or decision, then runs one targeted semantic query when guidance is needed.
-3. ZCode reads the complete Practice with `lore get` before applying its guidance.
+```text
+/lore How should I verify this change?
+```
 
-The `/lore` command is the explicit entry point: `/lore <question>` runs one targeted semantic query for the question through the Skill, and `/lore` without arguments retrieves Practices relevant to the current task.
-
-A catalog entry is not the full guidance or a resource listing. Catalog limits can omit Packs, so the catalog is not a hard filter on what may be relevant. ZCode can refresh it with `lore pack list --details`.
-
-The Hook does not query, install or modify Packs, download models, start Backend, or build indexes by itself. A semantic query is initiated by the Skill when it needs guidance; preparation or recovery stays explicit rather than being hidden by the Hook.
-
-## Verify
-
-In a new session, check that `/lore` appears in the command menu. Ask ZCode to use Lorelum before defining an implementation or verification plan, and check that it runs a meaningful query and reads a relevant Practice. If a query returns `preparing`, finish preparation and retry; a catalog alone does not verify semantic retrieval.
+Or ask ZCode to use Lorelum before it finalizes an important decision.
 
 ## Update
 
-From the plugin detail view in **Settings → Plugin Management**, uninstall and reinstall the Plugin so ZCode refreshes the cached plugin from the marketplace. CLI and Pack updates remain separate.
+Open **Settings → Plugin Management**, select Lorelum, and install the offered
+update. For a local checkout, uninstall and reinstall it from Discover after
+you change Plugin files.
 
 ## Troubleshoot
 
-If the catalog is missing, first check that the host Hooks feature is enabled (`hooks.enabled: true` in the ZCode host configuration, with ZCode restarted) — a disabled Hooks feature skips plugin Hooks silently, without any error. Then check that `lore` is on the ZCode process's `PATH`, the installed CLI supports `lore hook zcode`, a Pack is installed, and (on Windows) a usable Git Bash is available (Git installed on any drive is fine; the WSL `bash.exe` under `System32` is not used). An unavailable CLI, an older CLI, or malformed Hook data lets the session continue without injected catalog context; update the CLI before treating a missing catalog as a retrieval result.
+If `/lore` or guidance is missing:
 
-Use [Troubleshooting](./troubleshooting) for model and index problems. See [Agent instructions](./agents) for response handling and retrieval behavior.
+1. Confirm `hooks.enabled: true` and restart ZCode.
+2. Confirm Lorelum is installed and enabled in Plugin Management.
+3. Confirm `lore --version` works in the environment used by ZCode.
+4. Start a new session after installing or updating.
+
+For retrieval or model problems, see [Troubleshooting](./troubleshooting).

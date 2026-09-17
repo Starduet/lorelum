@@ -2,7 +2,7 @@
 
 This is the first-party ZCode integration for Lorelum. It brings relevant engineering Practices into ZCode when they can inform a task or decision, without loading every rule at once. Its progressive-disclosure flow is:
 
-The current host integration contract is [agent-integration](../../openspec/specs/agent-integration/spec.md); this README explains the ZCode-specific distribution and operating model.
+The current host integration contract is [agent-integration](../../../openspec/specs/agent-integration/spec.md); this README explains the ZCode-specific distribution and operating model.
 
 1. A compact **Installed Pack Catalog** makes the locally available Knowledge Packs discoverable.
 2. The Lorelum Skill uses that catalog as a relevance hint, not as the full engineering rules or a hard filter.
@@ -29,7 +29,7 @@ This Plugin is a ZCode adapter. Ordinary users need a released Lorelum CLI that 
 
 Install from the ZCode client: open **Settings → Plugin Management → Discover**, add the Lorelum repository (`lorelum/lorelum` on GitHub, or a local checkout directory) as a marketplace with the **`+`** button, then install **Lorelum** (`lorelum`) from `lorelum-plugins`. The installed identity is `lorelum@lorelum-plugins`, matching the Codex plugin identity.
 
-ZCode only dispatches plugin Hooks when the host Hooks feature is enabled. Before expecting a catalog, set `hooks.enabled: true` in the ZCode host configuration (for example `~/.zcode/cli/config.json`) and restart ZCode; with Hooks disabled the Plugin installs, but its SessionStart Hook is silently skipped. See the [ZCode installation guide](https://lorelum.com/en/docs/zcode) for details and [the development guide](../../docs/development/plugins.md) for a checkout-backed development install.
+ZCode only dispatches plugin Hooks when the host Hooks feature is enabled. Before expecting a catalog, set `hooks.enabled: true` in the ZCode host configuration (for example `~/.zcode/cli/config.json`) and restart ZCode; with Hooks disabled the Plugin installs, but its SessionStart Hook is silently skipped. See the [ZCode installation guide](https://lorelum.com/en/docs/zcode) for details and [the development guide](../../../docs/development/plugins.md) for a checkout-backed development install.
 
 ### Windows notes
 
@@ -40,7 +40,7 @@ On Windows the polyglot Hook wrapper locates Git Bash portably: it checks the st
 From the repository root:
 
 ```sh
-bun test plugins/lorelum-zcode/scripts
+bun test plugins/zcode/lorelum/scripts
 ```
 
 The CLI and Store integration is connected end to end: the Hook runs `lore hook zcode` against the LocalStore and renders the returned summaries. To smoke-check current source, install Packs into an isolated Store root, then pipe a Hook event through the source entrypoint. This source-only check requires Bun; an installed Plugin does not.

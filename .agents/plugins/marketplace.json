@@ -8,7 +8,7 @@
       "name": "lorelum",
       "source": {
         "source": "local",
-        "path": "./plugins/lorelum"
+        "path": "./plugins/codex/lorelum"
       },
       "policy": {
         "installation": "AVAILABLE",

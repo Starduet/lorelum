@@ -1,58 +1,45 @@
 ---
 title: ZCode
-description: 安装官方 Plugin，在 ZCode 中发现 Pack 并检索 Practice。
+description: 在 ZCode 中安装 Lorelum，并在新任务里使用 /lore 命令。
 icon: Plug
 ---
 
-Lorelum Plugin 为 ZCode 提供已安装 Pack 的目录、检索工程 Practice 的 Skill，以及 `/lore` 命令。目录帮助 ZCode 发现已有知识，Skill 指导它围绕任务查询并读取 Practice 全文。
+Lorelum Plugin 会为 ZCode 提供工程指导和 `/lore` 命令。
 
-## 范围
+## 开始前
 
-该集成坚持 CLI-first：它使用已发布的 `lore` 可执行文件、Lorelum Skill、`/lore` 命令和 ZCode Hook，不会运行本地 MCP server，也不会暴露本地 MCP tools。远程检索 MCP 服务是后续独立的产品边界，不是为了本地 Plugin 便利而增加的能力。
+请先完成[快速开始](./quickstart)。运行 ZCode 的环境需要能使用 `lore` 命令，并且至少安装了一个 Pack。
 
-## 前置条件
-
-先完成[快速开始](./quickstart)，再在运行 ZCode 的环境中检查：
-
-```sh
-lore --version
-lore pack list --details
-```
-
-Plugin 需要比 v0.1.0-alpha.2 更新、包含 `lore hook zcode` 命令的 Lorelum CLI 版本，并且运行 ZCode 的环境能从 `PATH` 找到 `lore`。它不内置、安装或更新 CLI，只使用本地 Store 中已安装的 Pack。普通用户机器不需要 Bun 或 Node。Windows 上 Hook 包装脚本会定位 Git Bash——依次从标准安装位置、`PATH` 上的 `git.exe`（任意磁盘）、排除 WSL 后的 `PATH` 上的 `bash.exe` 中查找——来执行脚本；找不到可用的 bash 时会话照常继续，只是不注入目录。
-
-ZCode 还要求宿主 Hooks 功能处于启用状态才会调度插件 Hook。在期望 Pack 发现生效前，请在 ZCode 宿主配置中设置 `hooks.enabled: true` 并重启 ZCode；Hooks 未启用时 Plugin 可以正常安装，但目录会被静默跳过。
-
-如果 CLI 不存在或版本过旧，无法执行 `lore hook zcode`，Hook 会让 ZCode 继续运行，只是不注入目录。安装兼容 CLI 后再使用 Pack 发现功能。
+ZCode 必须启用 Plugin Hooks。在宿主配置中将 `hooks.enabled` 设为 `true`，然后重启 ZCode。
 
 ## 安装
 
-在 ZCode 客户端打开 **Settings → Plugin Management → Discover**，点击 **`+`** 将 Lorelum 仓库（GitHub 上的 `lorelum/lorelum`，或本地 checkout 目录）添加为 marketplace。然后在 `lorelum-plugins` marketplace 中找到 **Lorelum** 卡片，点击 **Get** 安装。安装后的身份是 `lorelum@lorelum-plugins`，与 Codex 插件身份一致。
+1. 在 ZCode 中打开 **Settings → Plugin Management → Discover**。
+2. 点击 **+**，添加 Lorelum 仓库（`lorelum/lorelum`）或本地 checkout 作为 marketplace。
+3. 在 `lorelum-plugins` 中安装 **Lorelum**。
+4. 启动一个新会话。
 
-确认宿主 Hooks 功能已启用（在 ZCode 宿主配置中设置 `hooks.enabled: true`，并重启 ZCode）。启动新会话。在受支持的会话启动事件中，Hook 会运行 `lore hook zcode` 获取 Pack 级元数据，包括每个可直接读取的当前 `packRoot`。
+## 使用 Lorelum
 
-## 工作方式
+确认命令菜单中出现 `/lore`。你可以运行：
 
-1. 在受支持的会话启动事件中（startup、resume、clear 和 compact），Hook 提供精简的已安装 Pack 目录，其中可包含 Pack 名称、版本、描述、声明的技术范围和可直接读取的当前 `packRoot`。
-2. 对需要工程指引的重要任务或判断，Skill 将目录作为相关性线索，再发起一次有针对性的 semantic query。
-3. ZCode 使用 `lore get` 读完 Practice 后，再应用其中的指导。
+```text
+/lore 这个改动应该怎样验证？
+```
 
-`/lore` 命令是显式入口：`/lore <问题>` 通过 Skill 针对该问题发起一次 semantic query；不带参数的 `/lore` 检索与当前任务相关的 Practice。
-
-目录条目不是完整工程指引。较长目录可能省略部分 Pack，因此不能把目录当作相关知识的硬性筛选边界。ZCode 可以通过 `lore pack list --details` 刷新目录。
-
-Hook 本身不查询、不安装或修改 Pack，也不会下载模型、启动 Backend 或构建 index。需要工程指引时由 Skill 发起 semantic query；准备和恢复过程保持显式，不会由 Hook 暗中完成。
-
-## 验证
-
-在新会话中，确认命令菜单中出现 `/lore`。要求 ZCode 在确定实现或验证计划前使用 Lorelum，检查它是否执行了有意义的查询，并读取相关 Practice。若 query 返回 `preparing`，完成准备后重试；仅看到目录不足以证明 semantic retrieval 可用。
+也可以要求 ZCode 在确定重要决定前使用 Lorelum。
 
 ## 更新
 
-在 **Settings → Plugin Management** 的插件详情页卸载并重新安装 Plugin，让 ZCode 从 marketplace 刷新缓存的插件。CLI 和 Pack 仍需分别更新。
+在 **Settings → Plugin Management** 中选择 Lorelum，安装可用更新。使用本地 checkout 开发时，修改 Plugin 文件后在 Discover 中卸载并重新安装。
 
 ## 排查问题
 
-目录未出现时，先检查宿主 Hooks 功能是否已启用（ZCode 宿主配置中的 `hooks.enabled: true`，并已重启 ZCode）——Hooks 未启用时会静默跳过插件 Hook，不产生任何报错。再检查 ZCode 进程的 `PATH` 中是否有 `lore`、已安装的 CLI 是否支持 `lore hook zcode`、是否已安装 Pack，以及（Windows 上）是否有可用的 Git Bash（装在任意磁盘都可以；`System32` 下 WSL 的 `bash.exe` 不会被使用）。CLI 不可用、版本过旧或 Hook 数据无效时，会话可以在没有注入目录的情况下继续；更新 CLI 后再判断目录缺失是否代表检索不可用。
+如果没有出现 `/lore` 或工程指导：
 
-模型和索引问题见[故障排查](./troubleshooting)，响应处理和检索行为见 [Agent 使用说明](./agents)。
+1. 确认 `hooks.enabled: true`，并重启 ZCode。
+2. 确认 Lorelum 已在 Plugin Management 中安装并启用。
+3. 确认 ZCode 运行环境中的 `lore --version` 可用。
+4. 安装或更新后启动一个新会话。
+
+检索或模型问题请查看[故障排查](./troubleshooting)。

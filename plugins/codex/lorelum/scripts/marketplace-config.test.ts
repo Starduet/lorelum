@@ -38,7 +38,7 @@ test("public marketplace exposes the lorelum Plugin from its distinct marketplac
     readFile(join(import.meta.dir, "../.codex-plugin/plugin.json"), "utf8").then(
       (content) => JSON.parse(content) as PluginManifest,
     ),
-    readFile(join(import.meta.dir, "../../../.agents/plugins/marketplace.json"), "utf8").then(
+    readFile(join(import.meta.dir, "../../../../.agents/plugins/marketplace.json"), "utf8").then(
       (content) => JSON.parse(content) as MarketplaceConfig,
     ),
   ]);
@@ -64,7 +64,7 @@ test("public marketplace exposes the lorelum Plugin from its distinct marketplac
   expect(marketplace.plugins).toEqual([
     {
       name: "lorelum",
-      source: { source: "local", path: "./plugins/lorelum" },
+      source: { source: "local", path: "./plugins/codex/lorelum" },
       policy: { installation: "AVAILABLE", authentication: "ON_INSTALL" },
       category: "Productivity",
     },

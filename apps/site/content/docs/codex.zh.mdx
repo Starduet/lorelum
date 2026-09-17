@@ -1,43 +1,27 @@
 ---
 title: Codex
-description: 安装官方 Plugin，在 Codex 中发现 Pack 并检索 Practice。
+description: 在 Codex 中安装 Lorelum，并在下一个编码任务中开始使用。
 icon: Plug
 ---
 
-Lorelum Plugin 为 Codex 提供已安装 Pack 的目录，以及检索工程 Practice 的 Skill。目录帮助 Codex 发现已有知识，Skill 指导它围绕任务查询并读取 Practice 全文。
+Lorelum Plugin 会在当前任务需要工程判断时，让 Codex 使用相关的工程指导。
 
-## 范围
+## 开始前
 
-该集成坚持 CLI-first：它使用已发布的 `lore` 可执行文件、Lorelum Skill 和 Codex Hook，不会运行本地 MCP server，也不会暴露本地 MCP tools。远程检索 MCP 服务是后续独立的产品边界，不是为了本地 Plugin 便利而增加的能力。
-
-## 前置条件
-
-先完成[快速开始](./quickstart)，再在运行 Codex 的环境中检查：
-
-```sh
-lore --version
-lore pack list --details
-```
-
-Plugin 需要 v0.1.0-alpha.2 或更高版本的 Lorelum CLI，并且运行 Codex 的环境能从 `PATH` 找到 `lore`。它不内置、安装或更新 CLI，只使用本地 Store 中已安装的 Pack。普通用户机器不需要 Bun 或 Node。
-
-如果 CLI 不存在或版本过旧，无法执行 `lore hook codex`，Hook 会让 Codex 继续运行，只是不注入目录。安装兼容 CLI 后再使用 Pack 发现功能。
+请先完成[快速开始](./quickstart)。运行 Codex 的环境需要能使用 `lore` 命令，并且至少安装了一个 Pack。
 
 ## 安装
-
-添加 marketplace 并安装 Plugin：
 
 ```sh
 codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
-按 Codex 提示审阅 Plugin 的 Hook，再启动新任务。在受支持的会话启动事件中，Hook 会运行 `lore hook codex` 获取 Pack 级元数据，包括每个可直接读取的当前 `packRoot`。
+如果 Codex 要求审阅 Hook，请确认后再启动一个新任务。
 
-### 迁移早期 alpha 安装
+### 从早期 alpha 迁移
 
-早期 alpha 使用 `lorelum@lorelum`。安装当前 selector 前，请先移除旧 Plugin 和 marketplace source，
-确保 Codex 只保留一个 Lorelum source：
+如果此前安装过 `lorelum@lorelum`，请先移除旧 Plugin 和旧 marketplace source，再安装当前版本：
 
 ```sh
 codex plugin remove lorelum@lorelum
@@ -46,19 +30,13 @@ codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
-## 工作方式
+## 使用 Lorelum
 
-1. 在受支持的会话启动事件中（包括任务压缩后恢复），Hook 提供精简的已安装 Pack 目录，其中可包含 Pack 名称、版本、描述、声明的技术范围和可直接读取的当前 `packRoot`。
-2. 对需要工程指引的重要任务或判断，Skill 将目录作为相关性线索，再发起一次有针对性的 semantic query。
-3. Codex 使用 `lore get` 读完 Practice 后，再应用其中的指导。
+在新任务中，要求 Codex 在确定重要的计划或实现决定前使用 Lorelum。例如：
 
-目录条目不是完整工程指引。较长目录可能省略部分 Pack，因此不能把目录当作相关知识的硬性筛选边界。Codex 可以通过 `lore pack list --details` 刷新目录。
-
-Hook 本身不查询、不安装或修改 Pack，也不会下载模型、启动 Backend 或构建 index。需要工程指引时由 Skill 发起 semantic query；准备和恢复过程保持显式，不会由 Hook 暗中完成。
-
-## 验证
-
-在新任务中，要求 Codex 在确定实现或验证计划前使用 Lorelum。检查它是否执行了有意义的查询，并读取相关 Practice。若 query 返回 `preparing`，完成准备后重试；仅看到目录不足以证明 semantic retrieval 可用。
+```text
+请在确定这个改动的计划前，用 Lorelum 查找相关指导。
+```
 
 ## 更新
 
@@ -67,10 +45,15 @@ codex plugin marketplace upgrade lorelum-plugins
 codex plugin add lorelum@lorelum-plugins
 ```
 
-若 Codex 提示 Hook 发生变化，请重新审阅，再启动新任务。CLI 和 Pack 仍需分别更新。
+如果 Codex 提示 Hook 有变化，请重新审阅，然后启动一个新任务。
 
 ## 排查问题
 
-目录未出现时，检查 Codex 进程的 `PATH` 中是否有 `lore`、已安装的 CLI 是否支持 `lore hook codex`、是否已安装 Pack，以及 Hook 是否获准运行。CLI 不可用、版本过旧或 Hook 数据无效时，任务可以在没有注入目录的情况下继续；更新 CLI 后再判断目录缺失是否代表检索不可用。
+如果 Codex 看起来没有使用 Lorelum：
 
-模型和索引问题见[故障排查](./troubleshooting)，响应处理和检索行为见 [Agent 使用说明](./agents)。
+1. 确认 Plugin 已安装并启用。
+2. 确认 Codex 运行环境中的 `lore --version` 可用。
+3. 如果 Codex 提示需要审阅，重新确认 Hook。
+4. 安装或更新后启动一个新任务。
+
+检索或模型问题请查看[故障排查](./troubleshooting)。

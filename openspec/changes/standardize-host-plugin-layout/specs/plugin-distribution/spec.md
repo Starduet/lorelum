@@ -1,11 +1,7 @@
-# plugin-distribution Specification
-
-## Purpose
-为 Lorelum Codex Plugin 保持唯一、可安装且可维护的公开身份，同时确保 Plugin 只编排宿主上下文，不复制核心检索 runtime。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Single public Plugin identity
+
 每个受支持宿主 SHALL 在自己的原生 marketplace registration 中暴露恰好一个 Lorelum Plugin。Lorelum 的产品 ID SHALL 为 `lorelum`；host-specific source root SHALL 为 `plugins/<hostKey>/lorelum/`，其中当前 `hostKey` 为 `codex` 或 `zcode`。marketplace namespace、Plugin ID、source root 和 selector MUST 各自指向该宿主唯一的公开分发来源；同一个字符串 selector 可以在不同宿主中出现，但 MUST 被视为 host-local identity，而不得声称是跨宿主全局唯一值。
 
 Codex 侧：公开 Codex marketplace SHALL 使用名称 `lorelum-plugins`，并且 SHALL 只暴露一个 ID 为 `lorelum` 的 Plugin。该 Plugin SHALL 保持显示名 **Lorelum**、source root `plugins/codex/lorelum/` 和 selector `lorelum@lorelum-plugins`。alpha 迁移后，公开文档和开发流程 MUST 只使用 `lorelum-plugins`；不得同时公开 legacy `lorelum@lorelum` selector。
@@ -31,10 +27,3 @@ ZCode 侧：仓库根 `marketplace.json` SHALL 使用名称 `lorelum-plugins`，
 #### Scenario: ZCode Plugin update is discoverable
 - **WHEN** 新版本 ZCode Plugin 发布到同一 marketplace
 - **THEN** marketplace entry version MUST 与其 `.zcode-plugin/plugin.json` version 一致并高于已安装版本，使宿主可以判定更新可用
-
-### Requirement: Plugin runtime boundary
-Plugin 的 Skill 和 Hook SHALL 在新任务或明确 lifecycle event 中调用已安装的 `lore` CLI；它们 MUST 不启动、打包、配置或调用本地 MCP server，也 MUST 不持有 Store、Backend 或排序实现。
-
-#### Scenario: New coding task begins
-- **WHEN** 宿主为新的 coding task 装配 Lorelum 上下文
-- **THEN** Plugin MAY 通过 Skill/Hook 引导 CLI 检索，但 MUST 保持检索状态和错误语义由 CLI 负责

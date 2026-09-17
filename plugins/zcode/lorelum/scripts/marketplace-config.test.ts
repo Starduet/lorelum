@@ -16,6 +16,7 @@ interface PluginManifest {
 interface MarketplaceEntry {
   readonly name: string;
   readonly source: string;
+  readonly version: string;
 }
 
 interface MarketplaceConfig {
@@ -28,7 +29,7 @@ test("ZCode marketplace exposes the lorelum Plugin from the lorelum-plugins name
     readFile(join(import.meta.dir, "../.zcode-plugin/plugin.json"), "utf8").then(
       (content) => JSON.parse(content) as PluginManifest,
     ),
-    readFile(join(import.meta.dir, "../../../.claude-plugin/marketplace.json"), "utf8").then(
+    readFile(join(import.meta.dir, "../../../../marketplace.json"), "utf8").then(
       (content) => JSON.parse(content) as MarketplaceConfig,
     ),
   ]);
@@ -39,18 +40,26 @@ test("ZCode marketplace exposes the lorelum Plugin from the lorelum-plugins name
   expect(manifest.description).toContain("ZCode");
   expect(manifest.license).toBe("Apache-2.0");
   expect(manifest.mcpServers).toBeUndefined();
-  for (const component of [manifest.commands, manifest.skills, manifest.hooks]) {
-    const directory = join(import.meta.dir, "..", component ?? "");
-    expect(await stat(directory)).toBeTruthy();
+  const componentDirectories = await Promise.all(
+    [manifest.commands, manifest.skills, manifest.hooks].map((component) =>
+      stat(join(import.meta.dir, "..", component ?? "")),
+    ),
+  );
+  for (const directory of componentDirectories) {
+    expect(directory).toBeTruthy();
   }
   await readFile(join(import.meta.dir, "../assets/lorelum-icon.svg"), "utf8");
 
   expect(marketplace.name).toBe("lorelum-plugins");
   expect(marketplace.plugins).toEqual([
-    expect.objectContaining({ name: "lorelum", source: "plugins/lorelum-zcode" }),
+    expect.objectContaining({
+      name: "lorelum",
+      source: "./plugins/zcode/lorelum",
+      version: manifest.version,
+    }),
   ]);
   const marketplaceDirectory = await stat(
-    join(import.meta.dir, "../../..", marketplace.plugins[0]!.source),
+    join(import.meta.dir, "../../../..", marketplace.plugins[0]!.source),
   );
   expect(marketplaceDirectory.isDirectory()).toBe(true);
   expect(`${manifest.name}@${marketplace.name}`).toBe("lorelum@lorelum-plugins");

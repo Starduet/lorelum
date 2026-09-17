@@ -1,43 +1,30 @@
 ---
 title: Codex
-description: Install the official Plugin to discover Packs and retrieve Practices in Codex.
+description: Install Lorelum in Codex and use it in your next coding task.
 icon: Plug
 ---
 
-The Lorelum Plugin gives Codex an installed-Pack catalog and a Skill for retrieving engineering Practices. The catalog helps Codex discover available knowledge; the Skill guides targeted queries and full Practice reads.
+The Lorelum Plugin makes engineering guidance available in Codex when it can
+help with the task at hand.
 
-## Scope
+## Before you start
 
-The integration is deliberately CLI-first: it uses the released `lore` executable, the Lorelum Skill, and the Codex Hook. It does not run a local MCP server or expose local MCP tools. A remote-retrieval MCP service is a separate future product boundary, not a local Plugin convenience.
-
-## Prerequisites
-
-Complete [Quickstart](./quickstart), then check these commands in the environment that runs Codex:
-
-```sh
-lore --version
-lore pack list --details
-```
-
-The Plugin requires Lorelum CLI v0.1.0-alpha.2 or later, available as `lore` on `PATH`. It does not bundle, install, or update the CLI; it uses Packs already installed in the local Store. Bun and Node are not required on an ordinary user's machine.
-
-If an older or unavailable CLI cannot run `lore hook codex`, the Hook lets Codex continue without a catalog. Install a compatible CLI before expecting Pack discovery.
+Complete [Quickstart](./quickstart). The `lore` command must be available to
+Codex, and you need at least one installed Pack.
 
 ## Install
-
-Add the marketplace and install the Plugin:
 
 ```sh
 codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
-Review the Plugin's Hook when Codex requests it, then start a new task. At supported session-start events, the Hook runs `lore hook codex` to obtain Pack-level discovery data, including each readable current `packRoot`.
+Approve the Plugin's Hook if Codex asks, then start a new task.
 
-### Migrate an earlier alpha installation
+### Moving from an earlier alpha
 
-Earlier alpha versions used `lorelum@lorelum`. Remove that Plugin and marketplace source before
-installing the current selector:
+If you previously installed `lorelum@lorelum`, remove it and the old
+marketplace source before installing the current Plugin:
 
 ```sh
 codex plugin remove lorelum@lorelum
@@ -46,19 +33,14 @@ codex plugin marketplace add lorelum/lorelum
 codex plugin add lorelum@lorelum-plugins
 ```
 
-## How it works
+## Use Lorelum
 
-1. At supported session-start events, including a compacted task, the Hook supplies a compact catalog of installed Packs. It can include Pack names, versions, descriptions, declared stack scope, and readable current `packRoot` locators.
-2. The Skill uses that catalog as a relevance hint for a material task or decision, then runs one targeted semantic query when guidance is needed.
-3. Codex reads the complete Practice with `lore get` before applying its guidance.
+In a new task, ask Codex to use Lorelum before it settles an important plan or
+implementation decision. For example:
 
-A catalog entry is not the full guidance or a resource listing. Catalog limits can omit Packs, so the catalog is not a hard filter on what may be relevant. Codex can refresh it with `lore pack list --details`.
-
-The Hook does not query, install or modify Packs, download models, start Backend, or build indexes by itself. A semantic query is initiated by the Skill when it needs guidance; preparation or recovery stays explicit rather than being hidden by the Hook.
-
-## Verify
-
-In a new task, ask Codex to use Lorelum before defining an implementation or verification plan. Check that it runs a meaningful query and reads a relevant Practice. If a query returns `preparing`, finish preparation and retry; a catalog alone does not verify semantic retrieval.
+```text
+Use Lorelum to find guidance for this change before you finalize the plan.
+```
 
 ## Update
 
@@ -67,10 +49,15 @@ codex plugin marketplace upgrade lorelum-plugins
 codex plugin add lorelum@lorelum-plugins
 ```
 
-Review changed Hooks if Codex requests it, and start a new task. CLI and Pack updates remain separate.
+Approve changed Hooks if Codex asks, then start a new task.
 
 ## Troubleshoot
 
-If the catalog is missing, check that `lore` is on the Codex process's `PATH`, the installed CLI supports `lore hook codex`, a Pack is installed, and the Hook is approved. An unavailable CLI, an older CLI, or malformed Hook data lets the task continue without injected catalog context; update the CLI before treating a missing catalog as a retrieval result.
+If Codex does not appear to use Lorelum:
 
-Use [Troubleshooting](./troubleshooting) for model and index problems. See [Agent instructions](./agents) for response handling and retrieval behavior.
+1. Confirm the Plugin is installed and enabled.
+2. Confirm `lore --version` works for the Codex environment.
+3. Re-approve the Hook if Codex shows it needs review.
+4. Start a new task after any installation or update.
+
+For retrieval or model problems, see [Troubleshooting](./troubleshooting).

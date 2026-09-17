@@ -1,10 +1,10 @@
 ---
-title: Agent 使用说明
-description: 配置 Lorelum，围绕当前判断检索，并正确处理命令结果。
+title: Agent 运行参考
+description: 供能够执行 Lorelum 命令的 Agent 使用的详细参考。
 icon: Bot
 ---
 
-本页供能够执行本地命令的 Agent 使用。当工程指导有助于用户任务时，使用 Lorelum 从已安装 Knowledge Pack 中检索 Practice。可以直接向 Agent 提供本页的 [Markdown 版本](./agents.md)。
+本页是供能够执行本地命令的 Agent 使用的技术参考，也适合需要把这些说明直接交给 Agent 的高级用户。普通安装和第一次使用请从[接入 Agent](./agent-setup)开始。可以直接向 Agent 提供本页的 [Markdown 版本](./agents.md)。
 
 ## 配置环境
 
@@ -37,7 +37,7 @@ lore pack list --details
 lore pack install agentic-coding
 ```
 
-按[接入 Agent](./agent-setup)配置当前宿主。Codex 使用[官方 Plugin](./codex)。围绕当前仓库执行一次查询并读取完整 Practice，验证配置。
+按[接入 Agent](./agent-setup)配置当前宿主。Codex 和 ZCode 分别使用各自的[官方 Plugin](./agent-setup)。围绕当前仓库执行一次查询并读取完整 Practice，验证配置。
 
 若使用自定义 `--store-root`，install、query、get 和 index 命令应保持一致。它选择 Pack 和索引数据，不选择其他模型或 Backend。
 
@@ -69,7 +69,7 @@ lore get <practice-id>
 
 Practice 可以通过 `resource:` target 链接 Pack 内材料，例如 `resource:references/api-compatibility.md`。从 `get` 结果中相同 source 的 `packRoot` 解析它。只有当前判断需要额外细节时才读取 reference；asset 先复制到任务工作区再编辑；script 仅在当前任务授权、且 Practice 已说明用途和输入时运行。
 
-link 是默认任务路由，不是文件访问 allowlist。Codex SessionStart Catalog 会为每个已安装 Pack 提供可直接读取的当前 `packRoot`，当 Pack 上下文已经明确时可以直接使用它。对于已经取回的 Practice，多个 source 必须保持分开，并使用相同 source 的 `get` root，而不能静默挑选 Catalog entry。root 是可变的 current view：发生 Pack mutation 后，重新执行 `get` 或 `pack list` 后再将它视为当前 source；不要通过 Store 内部实现推导 root。不要假定 Pack script 会在 install、validate、query、list、get、index 或 recovery 期间运行。
+link 是默认任务路由，不是文件访问 allowlist。Codex 或 ZCode Plugin 在 SessionStart 注入的 Catalog 会为每个已安装 Pack 提供可直接读取的当前 `packRoot`，当 Pack 上下文已经明确时可以直接使用它。对于已经取回的 Practice，多个 source 必须保持分开，并使用相同 source 的 `get` root，而不能静默挑选 Catalog entry。root 是可变的 current view：发生 Pack mutation 后，重新执行 `get` 或 `pack list` 后再将它视为当前 source；不要通过 Store 内部实现推导 root。不要假定 Pack script 会在 install、validate、query、list、get、index 或 recovery 期间运行。
 
 ## 处理 JSON 和退出状态
 

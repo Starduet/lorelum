@@ -2,7 +2,7 @@
 
 This is the first Codex integration for Lorelum. It brings relevant engineering Practices into Codex when they can inform a task or decision, without loading every rule at once. Its progressive-disclosure flow is:
 
-The current host integration contract is [agent-integration](../../openspec/specs/agent-integration/spec.md); this README explains the Codex-specific distribution and operating model.
+The current host integration contract is [agent-integration](../../../openspec/specs/agent-integration/spec.md); this README explains the Codex-specific distribution and operating model.
 
 1. A compact **Installed Pack Catalog** makes the locally available Knowledge Packs discoverable.
 2. The Lorelum Skill uses that catalog as a relevance hint, not as the full engineering rules or a hard filter.
@@ -23,7 +23,7 @@ This Plugin is deliberately CLI-first: it uses the compiled `lore` executable to
 
 ## Installation
 
-This Plugin is a Codex adapter. Ordinary users need Lorelum CLI v0.1.0-alpha.2 or later, available as `lore` on `PATH`; it does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows. See the [Codex installation guide](https://lorelum.com/en/docs/codex) for public marketplace commands and [the development guide](../../docs/development/plugins.md) for a checkout-backed development install.
+This Plugin is a Codex adapter. Ordinary users need Lorelum CLI v0.1.0-alpha.2 or later, available as `lore` on `PATH`; it does not embed, build, or update the CLI. Bun is only required for maintainers running the source and test workflows. See the [Codex installation guide](https://lorelum.com/en/docs/codex) for public marketplace commands and [the development guide](../../../docs/development/plugins.md) for a checkout-backed development install.
 
 ### Windows notes
 
@@ -34,8 +34,8 @@ Codex runs hook commands through PowerShell on Windows. The Plugin invokes the c
 From the repository root:
 
 ```powershell
-python "$env:USERPROFILE\.codex\skills\.system\plugin-creator\scripts\validate_plugin.py" plugins\lorelum
-bun test plugins/lorelum/scripts
+python "$env:USERPROFILE\.codex\skills\.system\plugin-creator\scripts\validate_plugin.py" plugins\codex\lorelum
+bun test plugins/codex/lorelum/scripts
 ```
 
 The CLI and Store integration is connected end to end: the Hook runs `lore hook codex` against the LocalStore and renders the returned summaries. To smoke-check current source, install Packs into an isolated Store root, then pipe a Hook event through the source entrypoint. This source-only check requires Bun; an installed Plugin does not.

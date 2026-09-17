@@ -84,7 +84,7 @@ Agent 判断何时查询、哪些 Practice 适用。Lorelum 提供检索到的�
 - **本地 semantic retrieval。** 用 `lore query` 围绕任务和时刻检索已安装 Practice，本地 Backend 在请求之间复用 embedding 模型。
 - **Practice 全文读取。** 用 `lore get` 阅读完整指导和适用条件，再决定如何应用。
 - **版本化 Knowledge Pack。** 安装、查看、更新和移除 Pack，通过 `--store-root` 管理独立知识集合。
-- **Agent 集成。** 在能执行命令的 Agent 中使用 Lorelum Skill；Codex 可使用包含已安装 Pack 目录的官方 Plugin。
+- **Agent 集成。** 在能执行命令的 Agent 中使用 Lorelum Skill；Codex 和 ZCode 都可使用包含已安装 Pack 目录的官方 Plugin。
 - **明确的离线路径。** 用 `lore query --mode keyword` 按关键词匹配，无需模型或 Backend。
 - **Pack 编写工具。** 通过 CLI 验证源文件、格式化 Practice，并维护本地化状态。
 
@@ -139,7 +139,7 @@ lore get <practice-id>
 
 ## 接入 Agent
 
-Skill 指导 Agent 判断何时检索、如何描述任务和时刻，以及为什么应用前需要读取完整 Practice。
+完成快速开始后，按你使用的编码 Agent 选择接入方式：
 
 | 宿主                   | 接入方式                                               |
 | ---------------------- | ------------------------------------------------------ |
@@ -149,16 +149,7 @@ Skill 指导 Agent 判断何时检索、如何描述任务和时刻，以及为�
 | Cursor                 | 项目级 Lorelum Skill                                   |
 | 其他能执行命令的 Agent | 宿主支持的 Skill 或项目指令                            |
 
-Codex 用户安装 CLI 和 Pack 后运行：
-
-```sh
-codex plugin marketplace add lorelum/lorelum
-codex plugin add lorelum@lorelum-plugins
-```
-
-ZCode 用户在 **Settings → Plugin Management → Discover** 中把 `lorelum/lorelum` 仓库添加为 marketplace，安装 Lorelum Plugin（`lorelum@lorelum-plugins`）；之后 `/lore` 可针对当前任务或可选的问题检索 Practice。
-
-按提示审阅 Hook，再启动新任务。Hook 通过 `lore pack list --details` 读取已安装 Pack 的元数据，Skill 判断何时查询并读取 Practice。Plugin 不内置 CLI。
+安装选定的 Skill 或 Plugin 后，启动一个新任务，要求 Agent 在确定重要计划或实现决定前使用 Lorelum。每个宿主页都提供各自的更新步骤和最短排查路径。
 
 安装与验证步骤见[接入 Agent](https://lorelum.com/zh/docs/agent-setup)、[Codex 配置](https://lorelum.com/zh/docs/codex)和 [ZCode 配置](https://lorelum.com/zh/docs/zcode)。
 
@@ -167,7 +158,7 @@ ZCode 用户在 **Settings → Plugin Management → Discover** 中把 `lorelum/
 | 官方 Pack | 版本 | 重点 |
 | --- | --- | --- |
 | `agentic-coding` | `0.4.0` | 规划、实现、校验边界、恢复、验证和交付中的工程判断 |
-| `pack-creator` | `0.1.0` | Practice 与 Pack 的编写、评审和发布 |
+| `pack-creator` | `0.2.0` | Practice 与 Pack 的编写、评审和发布 |
 | `react-web-craft` | `0.1.0` | React Web 应用设计与性能：组件状态、异步数据流、代码加载、渲染与组合 |
 | `issue-pr-etiquette` | `0.1.0` | 可验证的单问题 Issue、单范围 PR、审查沟通与诚实披露 AI 协助 |
 
@@ -210,7 +201,7 @@ severity: warn
 
 Lorelum Core 不管理任务、不读取完整 transcript，也不判断实现是否通过验收。检索到的 Practice 是指导，不能代替验证证据。
 
-当前 Codex Hook 在受支持的会话事件中提供 Pack 目录。更完整的 compaction 前后指导取决于宿主能力，仍属于[研究方向](https://github.com/lorelum/lorelum/issues/32)。当前用户通过 CLI 和 Skill 接入。
+Codex 和 ZCode Plugin 会在各自受支持的会话事件中提供 Pack 目录。更完整的 compaction 前后指导取决于宿主能力，仍属于[研究方向](https://github.com/lorelum/lorelum/issues/32)。当前用户通过 CLI 和 Skill 接入。
 
 ## 文档与贡献
 

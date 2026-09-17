@@ -27,7 +27,7 @@ lore pack list agentic-coding
 
 The first command lists installed Packs and returns each Pack's current local `packRoot`; `--details` adds metadata for discovery and also returns the Pack locator. A Pack name lists that Pack's Practices and returns its `packRoot` on the `pack` object. Use a returned ID with [get](./get). Practice summaries deliberately do not repeat per-Practice paths or resource paths.
 
-`packRoot` is useful when the caller explicitly chose a Pack to browse or maintain. It is not injected into query results, but the Codex Pack Catalog includes it for every installed Pack. The Catalog still does not load or enumerate Pack resources automatically. It is a mutable `current` view, not an artifact digest path: after a mutation the same path may resolve to newer bytes or disappear after removal. Rerun `pack list` or `get` before treating it as current, rather than deriving a root from a Pack name or Store layout. See [Pack format](./pack-format).
+`packRoot` is useful when the caller explicitly chose a Pack to browse or maintain. It is not injected into query results, but the Pack Catalog injected by the Codex and ZCode Plugins includes it for every installed Pack. The Catalog still does not load or enumerate Pack resources automatically. It is a mutable `current` view, not an artifact digest path: after a mutation the same path may resolve to newer bytes or disappear after removal. Rerun `pack list` or `get` before treating it as current, rather than deriving a root from a Pack name or Store layout. See [Pack format](./pack-format).
 
 ## Update and remove
 

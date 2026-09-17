@@ -20,6 +20,7 @@ Lorelum is a Bun + TypeScript monorepo for engineering-knowledge retrieval: the 
 | `packages/format` | public Practice/Pack schema, parsing, validation, localization helpers | `packages/format/AGENTS.md` |
 | `apps/site` | public landing and documentation site | `apps/site/AGENTS.md` |
 | `packages/ui` | reusable Web primitives and production design tokens | `packages/ui/AGENTS.md` |
+| `plugins` | host-native Plugin overlays, marketplace mappings, Skills, Hooks, and host lifecycle integration | `docs/development/plugin-conventions.md`, `openspec/specs/agent-integration/spec.md`, `openspec/specs/plugin-distribution/spec.md` |
 | `docs` | maintainer material, internal APIs, ADRs, research | `docs/AGENTS.md` |
 
 Current integrations are CLI-first: use the released CLI together with host-native Skills and Hooks. Do not introduce local MCP servers, stdio wiring, MCP tools, MCP-backed Plugin behavior, or a local MCP wrapper around `lore`. `packages/mcp` is a non-product scaffold. A remote-retrieval MCP boundary requires a separately approved design.

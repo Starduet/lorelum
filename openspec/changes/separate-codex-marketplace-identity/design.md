@@ -7,17 +7,18 @@ Skill root 以 alias 表示、再提供相对 `file:` 路径时，连续同名�
 已确认的现状如下：
 
 - `.agents/plugins/marketplace.json` 的 marketplace 名和唯一 Plugin entry 都是 `lorelum`。
-- `plugins/lorelum/.codex-plugin/plugin.json` 的 Plugin ID 是 `lorelum`，源目录也是
-  `plugins/lorelum/`。
-- `plugins/lorelum/scripts/marketplace-config.test.ts` 锁定了上述同名关系。
+- `plugins/codex/lorelum/.codex-plugin/plugin.json` 的 Plugin ID 是 `lorelum`；其 host-specific
+  source root 已由后续 `standardize-host-plugin-layout` 变更统一。
+- `plugins/codex/lorelum/scripts/marketplace-config.test.ts` 锁定 marketplace namespace、Plugin
+  ID、显示名与当前 source root 的映射。
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - 让 marketplace namespace 与可安装 Plugin identity 在配置、selector 和缓存路径中可区分。
-- 保留用户面对的产品身份：Plugin ID `lorelum`、显示名 **Lorelum**、源目录
-  `plugins/lorelum/`。
+- 保留用户面对的产品身份：Plugin ID `lorelum`、显示名 **Lorelum**；host-specific source root
+  由 `standardize-host-plugin-layout` 管理。
 - 在 alpha 阶段一次性完成迁移，结束后只有一个有效的 Lorelum marketplace source。
 - 保持 CLI-first Skill/Hook 边界、`lore hook codex` ABI 和 Pack 检索行为不变。
 
@@ -27,7 +28,8 @@ Skill root 以 alias 表示、再提供相对 `file:` 路径时，连续同名�
   额外的 Skill 路径提示改变其行为。
 - 不保留 `lorelum@lorelum` 的并行兼容 source，也不为此引入别名 Plugin、自动配置迁移或本地
   MCP。
-- 不移动 `plugins/lorelum/`，不重命名 `lorelum` Plugin，也不改变已发布 CLI 的版本或合同。
+- 不重命名 `lorelum` Plugin，也不改变已发布 CLI 的版本或合同。source root 的迁移由后续
+  `standardize-host-plugin-layout` 负责，不在本 change 中另立路径合同。
 
 ## Decisions
 
@@ -48,8 +50,8 @@ cache/lorelum-plugins/lorelum/<version>/skills/lorelum/SKILL.md
 
 这不把 cache path 变成 Lorelum 的产品合同；它只是移除当前公开 identity 造成的重复视觉信号。
 
-**Why this over renaming the Plugin:** `lorelum` 是用户安装、看到和识别的产品对象。保留它可以
-避免移动 `plugins/lorelum/`、重写 Plugin manifest ID 和将来的 host-specific package 命名。marketplace
+**Why this over renaming the Plugin:** `lorelum` 是用户安装、看到和识别的产品对象。保留它可以避免
+重写 Plugin manifest ID；host-specific package 命名可以在不改变公开身份的前提下独立演进。marketplace
 是分发 namespace，`lorelum-plugins` 能准确表达它的责任。
 
 ### 2. 采用一次性 alpha migration，不维护旧 selector
@@ -63,10 +65,10 @@ Lorelum source，`codex plugin list` 只显示 `lorelum@lorelum-plugins`。
 
 ### 3. 将公开 selector 作为分发合同测试，而非仅靠文档同步
 
-**Proposed:** 扩展 `plugins/lorelum/scripts/marketplace-config.test.ts`，同时验证：
+**Proposed:** 扩展当前 Codex artifact 的 `marketplace-config.test.ts`，同时验证：
 
 - marketplace 名是 `lorelum-plugins`；
-- 唯一 Plugin entry、Plugin manifest ID 和目录仍是 `lorelum`；
+- 唯一 Plugin entry、Plugin manifest ID 和当前 host-specific source root 保持对应；
 - 组装出的 selector 是 `lorelum@lorelum-plugins`。
 
 安装文档、升级命令、checkout-backed development flow 和中英文站点页使用相同 selector。这样每次
@@ -77,8 +79,8 @@ Plugin 分发变更都会被定向测试覆盖，而不是依赖人工全局搜�
 | 方案 | 结论 | 原因 |
 | --- | --- | --- |
 | 保持 `lorelum@lorelum`，仅保留额外 Skill 提示 | 不选 | 用户要求不以额外提示修补宿主路径呈现；两个身份仍在宿主呈现中完全同名。 |
-| marketplace 保持 `lorelum`，Plugin 改为 `lorelum-codex` | 不选 | 会移动 Plugin 的公开身份、manifest 和源目录；用户面对的安装对象变得更长，迁移面更大。 |
-| marketplace 改为 `lorelum-plugins`，Plugin 保持 `lorelum` | 推荐 | 以最小迁移面区分分发层与产品 Plugin，同时保留用户可见的产品名和目录。 |
+| marketplace 保持 `lorelum`，Plugin 改为 `lorelum-codex` | 不选 | 会移动 Plugin 的公开身份和 manifest；用户面对的安装对象变得更长，迁移面更大。 |
+| marketplace 改为 `lorelum-plugins`，Plugin 保持 `lorelum` | 推荐 | 以最小迁移面区分分发层与产品 Plugin，同时保留用户可见的产品名。 |
 | 同时保留旧、新 selector | 不选 | 两个 marketplace source 可解析到同一个 Plugin ID，制造新的 source 歧义。 |
 
 ## Risks / Trade-offs

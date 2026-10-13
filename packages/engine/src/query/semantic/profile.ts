@@ -5,7 +5,9 @@ import { assertEncodingContract, type EncodingContract } from "./encoding";
 // v4 restores a token-bounded `full` context anchor and renames the document
 // groups to `full` / `task-card` / `body`, dropping the standalone negative
 // `topic` axis. v2 and v3 indexes are incompatible and must be rebuilt.
-export const SEMANTIC_PROJECTION_VERSION = 4;
+// v5 caps body views, including heading context, by the estimated token budget.
+// v4 indexes contain oversized body views and must be rebuilt.
+export const SEMANTIC_PROJECTION_VERSION = 5;
 // Query projection is versioned independently from document views: splitting a
 // request into clause vectors changes retrieval semantics without invalidating
 // the persisted Practice representation by itself.

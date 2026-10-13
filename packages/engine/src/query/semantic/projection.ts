@@ -180,12 +180,28 @@ function splitByTokenBudget(text: string, maximum: number): readonly string[] {
   return Object.freeze(chunks);
 }
 
+/**
+ * Heading context for one body unit, capped at `maximum` estimated tokens. The
+ * deepest headings are the most specific, so ancestors are dropped first; a
+ * single heading longer than the cap keeps only its first budget-sized piece.
+ */
+function headingPrefix(headingPath: readonly string[], maximum: number): string {
+  const segments = [...headingPath];
+  while (segments.length > 1 && estimatedTokens(segments.join(" > ")) > maximum) segments.shift();
+  const heading = segments.join(" > ");
+  return estimatedTokens(heading) > maximum ? (hardSplit(heading, maximum)[0] ?? "") : heading;
+}
+
 function bodyChunkTexts(body: string): readonly string[] {
   const chunks: string[] = [];
   for (const unit of markdownUnits(body)) {
-    const heading = unit.headingPath.length === 0 ? "" : `${unit.headingPath.join(" > ")}\n\n`;
-    for (const part of splitByTokenBudget(unit.text, SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS)) {
-      chunks.push(`${heading}${part}`);
+    // Heading context takes at most half the budget. Token estimates are additive,
+    // so prefix + part stays within SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS.
+    const heading = headingPrefix(unit.headingPath, SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS / 2);
+    const prefix = heading.length === 0 ? "" : `${heading}\n\n`;
+    const budget = SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS - estimatedTokens(prefix);
+    for (const part of splitByTokenBudget(unit.text, budget)) {
+      chunks.push(`${prefix}${part}`);
     }
   }
   return Object.freeze(chunks);

@@ -8,8 +8,8 @@ test("pins the representation-group multi-view Profile identity shape", () => {
     dimensions: 384,
   });
 
-  expect(profile.documentProjectionVersion).toBe(4);
+  expect(profile.documentProjectionVersion).toBe(5);
   expect(profile.profileId).toBe(
-    "58102707e73827188baac74c285066e0ae9a6c11a27a662751d89e4c2e7caaef",
+    "c9b491a1797d29351fbf789f434ed57373c1f17e98c92b7ed07510cfc6c0220b",
   );
 });

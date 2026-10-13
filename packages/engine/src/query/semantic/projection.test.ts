@@ -97,3 +97,44 @@ test("splits an over-long full view and unpunctuated CJK body by the estimated t
   }
   expect(chunked.map((view) => view.text).join("")).toContain("服务端渲染");
 });
+
+test("every body view, including its heading context, stays within the token budget", () => {
+  const heading = `## ${"服务端渲染设计".repeat(20)}`;
+  const paragraph = "当同一个服务端渲染中多个组件重复执行相同的请求级查询时应当去重。".repeat(40);
+  const views = projectSemanticPractice(practice(`${heading}\n\n${paragraph}`)).views.filter(
+    (view) => view.viewKind === "body",
+  );
+  expect(views.length).toBeGreaterThan(1);
+  for (const view of views) {
+    expect(estimatedTokens(view.text)).toBeLessThanOrEqual(SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS);
+  }
+});
+
+test("nested headings keep the most specific context and stay within budget", () => {
+  const body = [
+    `# ${"平台".repeat(60)}`,
+    `## ${"子系统".repeat(30)}`,
+    "### 缓存",
+    "",
+    "缓存失效时需要同时清理派生视图。".repeat(30),
+  ].join("\n");
+  const views = projectSemanticPractice(practice(body)).views.filter(
+    (view) => view.viewKind === "body",
+  );
+  for (const view of views) {
+    expect(estimatedTokens(view.text)).toBeLessThanOrEqual(SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS);
+  }
+  expect(views.at(-1)?.text).toContain("缓存");
+});
+
+test("a heading longer than the budget on its own is cut, not dropped, and body text survives", () => {
+  const body = `# ${"极长标题".repeat(200)}\n\n正文第一段。`;
+  const views = projectSemanticPractice(practice(body)).views.filter(
+    (view) => view.viewKind === "body",
+  );
+  expect(views.length).toBeGreaterThan(0);
+  for (const view of views) {
+    expect(estimatedTokens(view.text)).toBeLessThanOrEqual(SEMANTIC_VIEW_MAX_ESTIMATED_TOKENS);
+  }
+  expect(views.some((view) => view.text.includes("正文第一段"))).toBe(true);
+});

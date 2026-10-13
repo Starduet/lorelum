@@ -40,3 +40,13 @@ Issue #236 的已知实例中，帮助完成提交前 review 的 Practice 已经
 - **Benchmark:** 外部 runner 固定 Lorelum checkout 和评测输入，通过 harness 收集候选与最终名单；gold labels 仅由 benchmark 进程持有，并冻结 baseline 版本及原始结果。
 - **CLI 验证:** 仅使用现有正常 `lore query` 和已允许的配置，在明确标记为 test-owned 的隔离 worktree/Store 中观察终端 IDs；不增加 CLI 功能。
 - **Backend:** 继续复用同一 embedding runtime；多视角增加编码次数与索引体积，但不引入新模型或 Backend 生命周期。
+
+## Issue #236 Scope Boundary
+
+本 change 关闭 #236 的**本地检索部分**，不承诺 #236 的全部排序目标：
+
+- **包含**：候选宽度与公开 top-k 分离；全量纯向量排序；多视角（task-card / body / clause）表示；候选观察在排序前完成全部 N 个候选的 canonical 校验；召回与排序分开的评测记录；对本地 harness 的可复现结果。
+- **不包含**：通用流程指导压过具体指导的问题的本地解决方案；词面、BM25/FTS5 或其他关键词排序通道；LLM 或 reranker 的本地判断。
+- **交给高级检索**：对候选做适用性判断（判断"当前动作与状态是否适用"）属于高级检索的判断步骤。它由服务端或调用方 agent 执行，需要单独的接口设计与批准，不属于本 change，也不在开源本地检索中实现。
+- **验收定位**：#236 的目标是"优先"匹配当前任务与阶段，不要求每条查询都把指定 Practice 放到第一位。本地检索以 40 条评测集的召回与排序记录作为基线；未解决的排序失败与召回失败（见 verification §28）按已知限制记录，留给高级检索跟进。
+

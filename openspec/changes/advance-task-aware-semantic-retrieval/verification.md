@@ -1264,3 +1264,72 @@ scope（Q 1、Q+I 2）与 forbidden-before-core（均 0）满足不高于 2 / 1�
 - 高级检索方向：判断信号在开发集上强，融合规则被否定。下一步在新仓库/新会话推进：接口合同、判断标准版本化、真实延迟与成本、重复判断一致性。
 - 本地向量检索的 PR 留到高级检索服务开始时再提，本次不提交、不推送。
 - 20.4 保持未勾选。
+
+## 28. #236 验收：评测集、候选与排序分离报告、CR 案例（2026-10-13）
+
+**结论：#236 仍未满足验收第 3 条（Registry/Pack 减法 CR 案例），不能关闭。** 评测集、候选与最终排序记录、召回与排序分开报告已建立。v1 的 40 条中，有金标的 34 条里 hit@5 为 26，候选召回（前 20）为 32，排序失败 6，召回失败 2。Registry/Pack CR 案例在修正版诊断中核心 Practice 排第 4，排第 3 的是 Registry/Pack 发布类 Practice，因此不通过。
+
+### 28.1 范围与披露
+
+- 查询集 `issue236-v1`：40 条，8 类各 5 条。由一个作者 agent 编写，只读 97 条 Practice 目录（id、标题、`applies_when`、stage、例外），未运行检索。**不是人工编写或人工审核。**
+- 标注：两名独立 agent（A、B）各自读完整目录（无排名），分 `required` / `helpful` / `forbidden`。金标 = 两人 `required` 的交集。分歧 2 条：`paraphrase-3`、`adjacent-5`。
+- **v1 设计缺陷**：`task_domain_conflict-1` 的查询原文要求“再给安装和发布指导”，使 install-path 成为合理的 required，不再是领域干扰项。该条不作为 CR 验收依据，结果保留但不计入 CR 结论。
+- 修正版 CR 诊断 `i236-cr-v2-1`（单条，只问提交前减法 review）是在看到 v1 结果之后新增的，属于事后修正，已在此披露。v1 的其它 39 条没有改动。
+
+### 28.2 冻结与身份
+
+- `queries-v1.json`：revision `issue236-v1`，40 条，sha256 `6ef0db67e8e89097fd338e486669ee2887a9dc81b67582d5fb3c85053789a39a`。
+- 重放：`control-cli replay`（生产 `scoreSemanticPractice` 公式），store `store-6bf1e1b-v4`（97 Practice / 1232 views），模型 granite Q4（`18e8ce8c…`），win32-x64 native manifest，4 threads。manifest `status=complete`；与生产评分比对 3880 对，`maxAbsDelta = 0`，排序完全相同。
+- CR 诊断：revision `issue236-cr-v2`，1 条，同一 store 与模型；比对 97 对，`maxAbsDelta = 0`。
+- 原始排名、标签、分片与脚本保存在仓库外 `C:\Users\HP\.codex\lorelum-g1\issue236\`，不提交。
+
+### 28.3 结果（v1，N=20，K=5，金标为两人交集，有金标 34 条）
+
+| 指标 | 结果 |
+| --- | --- |
+| hit@5（任一金标在前 5） | 26/34 |
+| 候选召回（任一金标在前 20） | 32/34 |
+| 排序失败（前 20 有金标，前 5 无） | 6 |
+| 召回失败（前 20 无金标） | 2 |
+| 全部金标在前 5 | 24/34 |
+| 前 5 含禁项的查询 | 7（禁项排在最佳金标之前：3） |
+| 无金标查询（不计入命中） | 6（near_miss 5，adjacent 1） |
+
+按类别（hit / 排序失败 / 召回失败 / 无金标）：direct 4/0/1/0；paraphrase 2/2/1/0；near_miss 0/0/0/5；adjacent 4/0/0/1；task_domain_conflict 4/1/0/0；same_topic_stage 5/0/0/0；chinese_cross_lingual 5/0/0/0；mixed_long 2/3/0/0。
+
+### 28.4 失败分型
+
+- **召回失败（2）**：`direct-4`（只跑了单元测试，能否声称集成完整）与 `paraphrase-1`（一台笔记本通过，能否声称全平台就绪）。金标 `claim-only-supported-outcome` 分别排第 49 和第 64。Practice 适用条件描述的是“声明完成前的证据”，查询是具体场景说法，表示层未对齐。
+- **排序失败（6）**：金标排第 7–18，前 5 多为通用流程类 Practice（如 `converge-on-one-problem`、`replan-on-material-drift`、`close-or-declare-evidence-gaps`）。归类为通用项挤压具体项。
+- **分散证据（1）**：`mixed_long-3` 的两条必需 Practice 分别排第 8 与第 73，同一查询需要两段分散的证据。
+- **标注分歧（2）**：见 28.1。
+
+### 28.5 Registry/Pack 减法 CR 案例（验收第 3 条）
+
+- v1 `task_domain_conflict-1`：金标 `run-subtractive-review-before-commit` 排第 10；install-path 排第 1 且被两人标为 required。因设计缺陷不计入结论（见 28.1）。
+- v2 诊断（issue 描述的场景，只问减法 review）：
+  - 核心 `agentic-coding.review.run-subtractive-review-before-commit` 排第 4，进入前 5；两人一致标为 required。
+  - 排第 3 的 `pack-creator.discovery.choose-project-local-or-registry-release` 是 Registry/Pack 发布类 Practice。标注者未将其列为 helpful 或 forbidden，但按 issue 对“仅领域相似项”的定义，它属于领域项，且排在核心之前。
+  - 排第 6 的 `pack-creator.review.run-subtractive-content-review` 被标为 forbidden，排在核心之后。
+  - **判定：不通过。** 该判定依据 issue 的定义，不是标注结论；标注者未标该 Practice，此点需要维护者确认。
+
+### 28.6 验收项状态
+
+| 验收项 | 状态 | 依据 |
+| --- | --- | --- |
+| 8 类、经审核的评测案例 | 部分 | 40 条 8 类覆盖；作者与标注均为 agent，未人工审核；1 条设计缺陷；2 条标注分歧 |
+| 每例记录候选名单与最终排序 | 满足 | `run-v1/ranking.json` 每条 97 项全量排名，比对 `maxAbsDelta = 0` |
+| Registry/Pack CR 案例排序 | 未满足 | 28.5 |
+| 召回与排序分开报告，未召回记为召回失败 | 满足 | 28.3、28.4 |
+| 内部候选宽度与公开 top-k 分离，不泄露诊断 | 未在本次新增检查 | 既有 N/K 边界记录见 §2；本次 engine 测试全部通过 |
+| 无新 Markdown 正文格式、无手填结构化 query | 满足 | 本次未引入 |
+| canonical 内容与 snapshot 一致性 | 满足 | 本次未修改 store、scorer、pin、Profile |
+| OpenSpec proposal 先行并验证 | 满足 | `openspec validate advance-task-aware-semantic-retrieval --strict` 通过 |
+
+### 28.7 限制与下一步
+
+- 标注不独立于 LLM；查询与目录同源，可能存在目录偏好；没有人工复核子集。
+- 40 条样本，有金标 34 条；每类 5 条，不足以做统计结论。
+- 排序失败与 CR 失败的共同形态是通用项挤压具体项，属于排序问题，不是召回问题。纯向量下改善这一点需要新的排序设计，不能在 v1 上调参后当作验证。
+- 下一步需要维护者决定：是否在纯向量前提下设计新的排序方案（例如按任务与阶段角色组织 query 与 Practice 视角，或改进通用项的降权），并在一个新的留出集上验证。
+- #236 保持开放，不关闭；`20.x` 任务状态不因本节改变。

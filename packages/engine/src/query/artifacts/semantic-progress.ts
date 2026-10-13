@@ -8,7 +8,7 @@ import {
   semanticProgressIndexDatabaseDefinition,
 } from "../../persistence/definitions";
 import { semanticVectors } from "../../persistence/schemas/semantic-index";
-import { validateEmbeddingBatch, type EmbeddingPort } from "../semantic/encoding";
+import { embedInBatches, type EmbeddingPort } from "../semantic/encoding";
 import { SemanticIndexError } from "../semantic/errors";
 import {
   applySemanticIndexChanges,
@@ -180,8 +180,7 @@ async function embedBatch(
   profile: EmbeddingProfile,
   batch: readonly SemanticProjectionView[],
 ): Promise<readonly Float32Array[]> {
-  const inputs = batch.map((view) => view.text);
-  return validateEmbeddingBatch(profile, inputs, await embedding.embed(inputs));
+  return embedInBatches(profile, embedding, batch.map((view) => view.text));
 }
 
 async function vectorsForBatch(

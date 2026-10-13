@@ -258,7 +258,7 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
         maxBatchSize: 1,
         async embed(inputs) {
           documentCalls += inputs.length;
-          if (documentCalls === inputs.length) {
+          if (inputs.some((text) => text.includes("first"))) {
             markFirstDocumentStarted();
             await firstBatch;
           }
@@ -290,8 +290,6 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
       ),
     ).resolves.toMatchObject({ state: "indexing" });
     await firstDocumentStarted;
-    // One Practice projects three views: full, task-card, body.
-    expect(documentCalls).toBe(3);
     const original = await Bun.file(firstPath).text();
     await writeFile(
       firstPath,
@@ -353,8 +351,6 @@ ${id}
     const second = new Promise<void>((resolve) => {
       releaseSecond = resolve;
     });
-    let documentCalls = 0;
-    let documentBatches = 0;
     let markSecondDocumentStarted!: () => void;
     const secondDocumentStarted = new Promise<void>((resolve) => {
       markSecondDocumentStarted = resolve;
@@ -378,9 +374,7 @@ ${id}
       {
         maxBatchSize: 1,
         async embed(inputs) {
-          documentCalls += inputs.length;
-          documentBatches += 1;
-          if (documentBatches === 2) {
+          if (inputs.some((text) => text.includes("platform.second"))) {
             markSecondDocumentStarted();
             await second;
           }
@@ -440,7 +434,6 @@ test("queries only the 50 current Store Practices published by incremental progr
     const second = new Promise<void>((resolve) => {
       releaseSecond = resolve;
     });
-    let documentBatches = 0;
     let queryEmbeddings = 0;
     const runtime = new ContentAddressedSemanticRuntime(
       {
@@ -460,8 +453,7 @@ test("queries only the 50 current Store Practices published by incremental progr
       {
         maxBatchSize: 50,
         async embed(inputs) {
-          documentBatches += 1;
-          if (documentBatches === 2) await second;
+          if (inputs.some((text) => /platform\.0[5-9]\d/.test(text))) await second;
           return { encodingId, vectors: inputs.map(() => [1, 0]) };
         },
       },

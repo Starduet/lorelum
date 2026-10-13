@@ -13,10 +13,8 @@ import {
 import { acquireMutationLock } from "../../../local-store/storage/mutation-lock";
 import { openSqliteConnection } from "../../../persistence/database/connection";
 import { semanticIndexDatabaseDefinition } from "../../../persistence/definitions";
-import type { EmbeddingPort } from "../encoding";
-import { validateEmbeddingBatch } from "../encoding";
+import { embedInBatches, type EmbeddingPort } from "../encoding";
 import {
-  SemanticEmbeddingError,
   SemanticIndexError,
   SemanticIndexSnapshotChangedError,
 } from "../errors";
@@ -108,18 +106,7 @@ async function embedViews(
   profile: EmbeddingProfile,
   views: readonly SemanticProjectionView[],
 ): Promise<readonly Float32Array[]> {
-  if (!Number.isSafeInteger(port.maxBatchSize) || port.maxBatchSize < 1) {
-    throw new SemanticEmbeddingError("Embedding batch limit is invalid");
-  }
-  const vectors: Float32Array[] = [];
-  for (let start = 0; start < views.length; start += port.maxBatchSize) {
-    const batch = views.slice(start, start + port.maxBatchSize);
-    const inputs = batch.map((view) => view.text);
-    // eslint-disable-next-line no-await-in-loop -- the Backend runtime admits one batch at a time.
-    const result = await port.embed(inputs);
-    vectors.push(...validateEmbeddingBatch(profile, inputs, result));
-  }
-  return Object.freeze(vectors);
+  return embedInBatches(profile, port, views.map((view) => view.text));
 }
 
 function viewsForDocuments(

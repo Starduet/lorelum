@@ -1,7 +1,7 @@
 import type { EffectivePractice } from "../../local-store";
 import { parseQueryRequest } from "../request";
 import { assembleQueryHits } from "../result";
-import { validateEmbeddingBatch, type EmbeddingPort } from "./encoding";
+import { embedInBatches, type EmbeddingPort } from "./encoding";
 import { SemanticIndexQueryError } from "./errors";
 import type { SemanticCandidate, SemanticIndexReader } from "./index/reader";
 import type { EmbeddingProfile } from "./profile";
@@ -34,9 +34,11 @@ export async function searchSemanticArtifact(input: {
     input.queryViews === undefined || input.queryViews.length === 0
       ? projectSemanticQuery(text)
       : input.queryViews;
-  const inputs = queryViews.map((view) => view.text);
-  const batch = await input.embedding.embed(inputs);
-  const vectors = validateEmbeddingBatch(input.profile, inputs, batch);
+  const vectors = await embedInBatches(
+    input.profile,
+    input.embedding,
+    queryViews.map((view) => view.text),
+  );
   return input.reader.search(
     queryViews.map((view, index) => {
       const vector = vectors[index];

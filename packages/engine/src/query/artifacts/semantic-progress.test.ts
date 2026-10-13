@@ -65,15 +65,13 @@ test("publishes each completed ProjectContext vector batch for partial query bef
     const second = new Promise<void>((resolve) => {
       releaseSecond = resolve;
     });
-    let documentCalls = 0;
     let queryCalls = 0;
     const documentEmbedding = {
-      // maxBatchSize counts Practices per batch, so one Practice (three views:
-      // full, task-card, body) completes per call.
+      // maxBatchSize bounds views per embed call. The second Practice's views are
+      // held until the first Practice is published and queryable.
       maxBatchSize: 1,
       async embed(inputs: readonly string[]) {
-        documentCalls += 1;
-        if (documentCalls === 2) await second;
+        if (inputs.some((text) => text.includes("platform.second"))) await second;
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
     };
@@ -286,6 +284,56 @@ test("a forced rebuild failure keeps the prior ready artifact queryable", async 
       state: "ready",
       indexedPracticeCount: 2,
       totalPracticeCount: 2,
+    });
+  } finally {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(cache, { recursive: true, force: true }),
+    ]);
+  }
+});
+
+test("cold build embeds document views in calls within the Backend input limit", async () => {
+  const { root, cache } = await setup();
+  try {
+    // Three short Practices project to nine views, more than the Backend's eight-input limit.
+    await writeFile(
+      join(root, ".lorelum", "packs", "platform", "practices", "platform.third.md"),
+      `---\nid: platform.third\ntitle: platform.third\nstage: implementation\ntech_stack:\n  - typescript\napplies_when: When building an incrementally indexed project context.\n---\nplatform.third\n`,
+    );
+    const snapshot = await resolveProjectContext({
+      startDirectory: root,
+      storageRoot: { rootPath: join(root, "store") },
+      store: {
+        async readEffectivePracticeSnapshot() {
+          return { practices: [] };
+        },
+      },
+    });
+    if (snapshot === undefined) throw new Error("Expected ProjectContext");
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const limit = 8;
+    const embedding = {
+      maxBatchSize: limit,
+      async embed(inputs: readonly string[]) {
+        if (inputs.length > limit) throw new Error("embedding.input-invalid");
+        return { encodingId, vectors: inputs.map(() => [1, 0]) };
+      },
+    };
+    const service = new ContentAddressedSemanticProgressService(
+      snapshot,
+      cache,
+      profile,
+      embedding,
+      undefined,
+      undefined,
+      embedding,
+    );
+
+    await expect(service.build()).resolves.toEqual({
+      state: "ready",
+      indexedPracticeCount: 3,
+      totalPracticeCount: 3,
     });
   } finally {
     await Promise.all([

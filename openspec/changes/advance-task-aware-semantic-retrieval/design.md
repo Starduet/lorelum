@@ -6,7 +6,9 @@
 
 - `packages/engine/src/query/semantic/read.ts` 将请求的 `limit` 原样传给 reader；`packages/engine/src/query/semantic/index/reader.ts` 按该 limit 截断向量结果。因此现在候选宽度与用户最终 `top-k` 相同，尚无独立的最终排序空间。
 - `packages/engine/src/query/semantic/query-service.ts` 在 query 期间协调候选选择、同一 Store snapshot 下的 canonical Practice 读取和结果组装，并可能因 Store 变化重试。
-- `packages/engine/src/query/semantic/projection.ts` 当前把 frontmatter 与完整 Markdown body 拼为一个向量文本；具体是否改投射或排序策略要由 baseline 结果决定。
+- `packages/engine/src/query/semantic/projection.ts` 当前把 frontmatter 与完整 Markdown body 拼为一个向量文本；`semanticVectors` 以 Practice ID 为主键，无法持久化局部内容视角。
+- 第一轮 task-aware 实现只在同一候选池内使用 request-private FTS5 BM25，并以 `similarity + 0.05 × taskStrength` 重排。它能处理已召回候选，但不改变表示，也不能修复候选外漏项。
+- 2026-09-26 输入侧参考观察到 query 字段权重与聚合会影响小样本排序；多对多参考提出 `多个 query 视角 × 同一 Practice 的多个内容视角`，但文档侧尚未实验。
 - 探索草案 `docs/research/task-aware-retrieval-evolution.md` 记录了目标 review Practice 已被召回但排名靠后的一次观察。它是研究材料，不是已接受的产品合同。
 
 ## Goals / Non-Goals
@@ -14,6 +16,8 @@
 **Goals:**
 
 - 在最终排序前保留独立的候选集合宽度 `N`，最终仅输出至多 `K` 个结果。
+- 让 query clause views 与同一 Practice 的 task card 和通用正文块分别进行向量匹配，在 Practice 内先汇总，避免整句、全文或长正文只因总长度大而主导。
+- 让 task-card 和 body-view 的表示、分块配方和 digest 可版本化；旧单向量 Profile/index 不得被当成兼容。
 - 让 benchmark harness 对同一次检索分别看到候选集合与正常排序结果，从而判断漏召回还是错排序。
 - harness 不依赖用户 CLI 调试输出，不要求 benchmark checkout import Engine 私有源码，也不扩大公开产品面。
 - 在 baseline 阶段只拆分 N/K、保持旧排序行为；harness 与 scorer 校验通过并冻结 baseline 后，才改进召回/排序。
@@ -25,15 +29,15 @@
 - 不将 harness 做成普通 CLI 命令、包公开 export、产品 API 或用户可见诊断。
 - 不增加 `--explain`、新 CLI flag、产品 protocol field、诊断子命令或其它 CLI 功能。
 - 不把 gold labels、完整 query 集或 Knowledge-Pack 内容复制进主仓库。
-- 不引入 query analyzer、Hybrid、ANN、新 embedding 模型或专用 reranker，除非当前审核案例的结果证明有必要并另行完成设计对齐（见 Decision 7）。
+- 本轮不把多 query 字段自动提取或动态权重设为默认产品行为，也不引入 Hybrid、ANN、新 embedding 模型或专用 reranker；这些能力须由与文档表示隔离的实验决定。
 
 ## Decisions
 
-### 1. 先分开 N 与 K，再接 harness
+### 1. 分开 N 与 K，再接 harness
 
-`N` 是经过必要有效性与 snapshot 校验、能够进入最终排序的候选宽度；`K` 是正常结果数量。Engine 先收集至多 N 个有效候选，再执行原有排序并截取前 K 个。候选不足 N 时返回实际有效候选；评测用例选择 `N > K`。第一步只拆开边界，不改变旧排序行为，回归测试需确认相同输入的旧最终结果仍保持一致。
+`K` 是正常结果数量；`N` 是 benchmark harness 报告 candidate ID 的宽度上限。排序现在覆盖全部 eligible Practice：reader 先对全量候选聚合排序，`K` 只在完整排序产生后应用，`N` 只限制 harness 返回的 candidate ID 数量，不改变参与打分的集合或最终排序。评测用例仍选择 `N > K`，以便同时观察 candidate 列表与正常排序结果。
 
-不能将旧 `limit=K` 的输出改名为 `candidateIds`，因为这样无法观察被旧 K 截断的候选。
+历史说明：本 change 最初把 `N` 当作"能进入最终排序的候选宽度"，即先取至多 N 个候选再排序。2026-09-26 的输入侧动态权重实验与多对多向量参考，以及维护者结论，表明向量全量扫描成本很小，这种"先 N 再 K"的收窄是多余的；因此 `N` 降级为报告宽度，排序分母改为全量 eligible Practice。不能将旧 `limit=K` 输出改名成 `candidateIds`，因为那无法观察被旧 K 截断的候选。
 
 ### 2. harness 是固定 checkout 内的本地测试程序
 
@@ -94,40 +98,35 @@ baseline 固定 Pack/cases/Profile/N/K/environment 和 Lorelum baseline commit�
 
 最终排序内容来自已通过 snapshot 检查的 canonical Practice；候选索引始终是派生状态。Store query 与 content-addressed ProjectContext query 共用同一 Engine 候选/排序规则。若所选排序仅使用当前 canonical 内容且不改变持久化表示，不升级 index schema/Profile；只有持久化 view/projection/chunk 改变时才按现有 staging、snapshot fence、atomic publication 路径迁移。
 
-### 7. 第一轮候选内词面排序（历史实现，以下第 8 节修订）
+### 7. 用 Practice 多视角向量替代关键词任务重排
 
-冻结 baseline（50 例：core candidate recall 49/50、core final top-5 42/50、2 例 scope error）显示失败集中在最终排序：7 例 core 已进入候选但停在 candidate rank 6–13，且都在结果边界 0.013 相似度以内；2 例仅领域或技术栈相似的 Practice 压过 core。因此本轮选择最小改动：不改 embedding、投射、索引 schema 或 Profile，只在同一次检索、同一 snapshot 内重排已经过 canonical 校验的候选。
+冻结 baseline（50 例：core candidate recall 49/50、core final top-5 42/50、2 例 scope error）说明既存在最终排序失败，也存在候选外漏项。第一轮 FTS5 task signal 只在候选池内调整字面重合，不能表达“同一句子匹配正文中的局部适用条件”，也没有修复召回。因此第二轮把变化放在语义表示与向量聚合，不再扩大关键词权重。
 
-机制：
+文档表示（三种表示组）：
 
-- 相似度仍是基础顺序；任务/阶段信号取自 canonical Practice 字段，用既有 keyword projection 与固定的 keyword field weights（identity、title、applies_when 明显高于 tech stack、anti-pattern 与 body），在同一次请求内建立 request-private、离线的确定性 FTS5 BM25 打分，并在同一候选集合内归一化到 0–1。
-- 最终顺序按 `similarity + SEMANTIC_TASK_SIGNAL_WEIGHT × taskStrength` 排序，权重固定为 0.05 且显式有界：任务信号最多把候选移动 0.05，高于 baseline 中所有排序失败的 0.013 间距，低于清晰语义领先者相对后续候选的常见间距。因此任务/阶段匹配可以决定近似平局，但不能取代语义 reader。
-- Decision 1 的选项约束（“query analyzer / Hybrid / 专用 reranker 需先证明必要并完成设计对齐”）由此满足：baseline 证据要求处理任务/阶段错排，本节即其设计对齐。实现仍是单一 semantic 模式：候选只来自 semantic index，不新增 keyword 检索模式、不合并第二个候选来源、不改变 N/K 边界与候选观察点；`candidateIds` 是完成重排后的候选池，`finalIds` 仍是同一次检索的前 K。
-- 任务信号只是排序增强，不成为新的可用性门槛：运行时不提供 SQLite FTS5 时保持语义相似度顺序返回，而不是让 semantic query 失败，也不静默切换到 keyword retrieval。
+- `full` view：不含 id 与字段标签的整条 Practice 文本（title、`applies_when`、stage、`tech_stack`、anti-pattern name/description、完整 body），作为上下文锚点，并按估算 token 预算切分，使长文本不会一次性超过模型上下文。
+- `task-card` view：只由 schema 字段组成 —— title、`applies_when`、stage，以及 anti-pattern 的 name 与 description。不得包含 tech stack，使领域名词不能单独决定适用性问题。
+- `body` views：按通用 Markdown 段落、列表项与长度边界切分；每个块附当前标题路径，否定词、例外和条件句不脱离原块。
+- 任何进入 embedding 的文本都不得携带裸 id/slug 或英文字段标签：`Practice: react.server.request-dedup-cache` 与 FTS5 的 `id: 8` 权重是同一个字面信号，只是换了载体。分块配方版本必须进入 view digest。
+- 每个 view 持久化 Practice ID、view ID/kind/ordinal、canonical content digest、projection digest 和 embedding。Store 或 ProjectContext 仍从同一 embedding Profile 编码，不引入第二个模型。
 
-### 8. 修复观察点与词面证据放大（本轮已确认方向）
+查询与聚合（对齐 2026-09-26 的多对多参考）：
 
-维护者在查阅有限诊断结论后确认继续：先修复候选观察点、错误词匹配和加分放大；召回补充与适用性判断继续验证，不混入本轮算法提交。诊断证据与限制见 [analysis.md](./analysis.md)。本节替代第 7 节关于候选顺序、归一化、测试注入和降级的决定，不改 N=20/K=5、embedding Profile、持久化 keyword/semantic 表示或 harness v1 字段。
+- 默认产品 query 不再把整句作为一个主导向量。`query-views.ts` 按跨语言标点边界把原句拆成独立 clause views；当 query 只有一个 clause 时该 clause 才等同原句。内部接口仍允许给定 `intent`/`moment`/`artifact`/`constraints`/`domain` 等更丰富 query views，但不新增 CLI/API 参数。
+- 同一 Practice 内，每个 query clause 做两段式片段证据汇总：`task-card` 取最佳匹配作为适用性分数，`body` 同时保留最佳片段与全部片段的均值，再用 `0.5 × max + 0.5 × mean` 得到 m 侧片段证据分数。单片段能贡献局部证据，但更多无关片段会拉低均值，因此块数不能线性抬高分数。`full` 是重建/上下文锚点，不进入常规打分，避免全文重复每一个局部信号；只有 Practice 完全没有可打分 view 时才把它作为兜底。
+- 两段都覆盖全部 eligible Practice，不建立候选漏斗：第一段 task-card 适用性、第二段 body 片段证据都在完整集合上计算，最后才按 Practice 去重、排序并应用 `K`。
+- 跨 clause 的聚合发生在**同一次检索**里，不引入多轮：每个 clause 先得到该 Practice 的 clause 分数（上述 `task-card` 最佳适用性与 body 片段证据的等权平均），再按 query view 的基准权重求加权平均。排序对全部 eligible Practice 只发生一次。单个背景/领域 clause 的高分不能独自带过整条 Practice，因为动作 clause 的近零余弦会被一起平均进去；决定顺序的仍是向量余弦本身，不是被名次融合替换掉的相对排序。曾叠加的"与最弱 clause 混合"项已被实测否决（见 `verification.md` §20）：它同样惩罚"动作 clause 命中、背景 clause 很弱"的正确 Practice。
+- 不建立跨轮 reciprocal rank fusion、单视图槽位轮或细化轮。历史上本 change 曾按 50 例冻结集把 A/B/C/D 四个轮次族做二层 RRF 组合，见 `verification.md` §16–§18。维护者指出该方向错误：它把向量相似度换成了名次融合，并需要靠族组合取舍来选默认。因此 §16–§18 只保留为实验记录，不是当前实现或产品默认；回退记录见 §19。
+- 不在任何一层累加块分；也不引入任何词面通道 —— semantic 路径不得出现 FTS5/BM25、关键词表切分 query 字段或 keyword fallback，因为它们对无空格语言（如中文）是零召回，对跨语言按构造不可能命中。
+- reader 先对全部 eligible Practices 聚合和排序，`K` 只在完整排序产生后应用；不再有"先取 20 再排 5"的候选池截断。benchmark harness 的候选宽度 `N` 只限制其报告的 candidate ID 数量，不改变参与打分的集合或最终排序。候选观察与快照 retry 语义保持不变。
 
-**观察点。** 在同一 query attempt 中先用现有 canonical result assembly 校验全部 N 个候选的存在性、digest 和 summary，再采集 reader 顺序的 distinct candidateIds；之后重排，仅对已验证 summary 重新排列并截 K。这样复用已有校验规则，避免排序前后各维护一套 digest 检查。重试仍丢弃整次 attempt，失败不返回名单。
+身份、增量与迁移：
 
-**内部边界。** `SemanticQueryDependencies` 恢复原公开类型，不再暴露 taskSignal。测试注入只留在不经 barrel 导出的内部 candidate trace 依赖和排序函数中。旧分支已经暴露的可选属性被收回，属于恢复原接口边界，而不是声称类型从未变过。辅助 FTS 失败转为已有 SemanticIndexQueryError，harness 使用既有 retrieval_failed，普通 CLI/API 保持既有错误 envelope；不再成功返回另一套隐藏排序。
-
-**词面证据。** 新的 tokenizer 只用于请求私有的 semantic task signal。普通词复用现有 NFKC、标识符拆词与 CJK bigram；斜线连接的技术名称及 C++/C# 类后缀保持原子，不拆成代词。过滤一组保守的英文代词、冠词、介词与助动词，保留否定词、动作词、C/R 等独立技术名称，不做逐案例词表。query 和七个 canonical 字段使用同一规则。经可逆的纯字母 token 编码后复用现有内存 FTS5 adapter，避免底层 tokenizer 再拆原子，也不改持久化 keyword tokenizer 或 Profile。
-
-**强度。** 令 Q 为去重后的有效 query tokens，D 为候选所有 canonical 字段 tokens 的并集，m 为匹配的不同有效词数量，b 为现有 BM25 正分值，bmax 为当前池最大正分值：
-
-```text
-m = |Q ∩ D|
-strength = (m / (m + 1)) × b / bmax
-relevance = similarity + 0.05 × strength
-```
-
-Q 为空、无匹配或 bmax 不为正时强度为零。所有分值有限且 strength 在 [0,1]。匹配数量的自然饱和限制孤立词的影响：一个词至多半额，更多独立词增加证据但边际收益递减。b/bmax 保留原有字段与 BM25 相对证据，不再把最小分数扣除后拉满差值。近同分且匹配词数相同的候选获得近同加分。m 只计算已有匹配，因此追加对全池都未命中的背景词不会削弱已有词面证据；新增词若命中别的候选，仍可能改变相对分数。此公式不保证理解任务或阶段，不消除池内 BM25 统计依赖，也不声称解决所有 scope/recall 问题。
-
-选择这个无新可调参数的修正，而不使用 `b/(b+c)`：FTS5 在小候选池中可能把词的 IDF 压到极小值，固定绝对尺度 c 会同时抹掉真实匹配。不提高 0.05，不在冻结题集上扫描权重；匹配数量饱和和相对分数的选择由上述合成不变量验证。曾试用 m/|Q|，但它会仅因追加未命中说明而稀释证据，且有限回放发现已有命中退步，因此未交付该中间实现；不是按某个案例另设阈值。没有词面重合时保持语义顺序，跨语言收益仍来自 embedding。
-
-**验证与后续。** 新回归使用虚构 Practice 与受控向量，覆盖 pronoun/技术缩写冲突与真实技术任务、无重合/中文、近等分、部分命中唯一 hit、强任务匹配、直接有用的领域内容、tie-break、输入不变，以及 digest-before-signal、retry 和失败不返回名单。旧复制真实案例的测试材料改为独立合成 fixture，保留其合同断言；不把 final 是 candidate 前缀当成一般约束。改动后不在主仓跑全量 benchmark。固定新 build 交由 benchmark 独立对照；是否保住六例收益、修复剩余排序与 scope 仍需实测。
+- `SEMANTIC_PROJECTION_VERSION = 4`、`SEMANTIC_QUERY_PROJECTION_VERSION = 2` 与 Profile identity 一起升级；`SEMANTIC_INDEX_VERSION` 保持 3（行结构未变），但 `view_kind` 约束改为 `full | task-card | body`。旧单向量 index、旧 v2 多视角 index 与 v3 的 `applicability/topic/guidance` index 都不是兼容项，状态为 incompatible，后续 build 从完整 snapshot 原子重建。
+- 视图文本按**估算 token 预算**切分，而不是字符数：中文约 1 token/字，其它文本约 0.25，按字符切会让中文提前约四倍撞上模型上下文。Engine 没有自己的 tokenizer，因此使用保守估计并在 projection 中固定预算。
+- schema 以 `(practice_id, view_id)` 标识向量行，并持久化 view kind/ordinal 与 digest；普通关系读写继续使用 Drizzle。
+- 增量 build 以每个 view 的 projection digest 复用未变化向量；正文只改一个局部块时，未变化的 full/task-card/body views 仍可复用，但文档级 digest 与目标 snapshot 必须更新。
+- ProjectContext progress、完整 artifact、Store-local semantic index 与共享 vector cache 都使用相同的 view digest 身份，不能把旧单向量缓存冒充新 view 向量。
 
 ## Risks / Trade-offs
 
@@ -137,18 +136,46 @@ Q 为空、无匹配或 bmax 不为正时强度为零。所有分值有限且 st
 - **CLI 观察与 harness trace 被误当成同一请求** → 将 CLI IDs 记录为独立产品路径观察；只有 harness 响应用于 candidate-vs-final 归因。
 - **诊断意外扩大 CLI/公开 API** → 候选名单只由本地测试 harness 暴露；CLI 只运行现有正常路径。
 - **测试私有数据或工件留在提交中** → 隔离 worktree/Store 明确标记 test-owned，并列入 merge 前清理验证。
-- **先建复杂 reranker 后发现是召回问题** → 冻结 baseline 后按逐例归因选择算法。
+- **局部高分来自例子、反例或否定条件** → view 必须保留所属标题与完整语义单元；benchmark 回读 canonical 原文与实际适用条件，不把高分当成建议适用。
+- **块数机会偏差** → 同一 Practice 内按 query view 取 `max`，块数不能线性抬高分数；但 `max` 仍有"块越多越容易碰到一次高分"的机会偏差，因此仍记录 view 数、命中 kind/ordinal 与 chunk size，并在 benchmark 回读原文上下文。
+- **词面通道换载体回流** → 关键词表切 query 字段、手工字段权重表、裸 id/slug 进入 embedding 都会让 semantic 路径重新变成关键词检索。以语义角色为键、禁止清单、id 不进入文本作为约束，并在测试中覆盖"只命中 topic 不能取胜"与"CJK 不被字符预算截断"。
+- **估算 token 预算不准** → 估计值比真实 tokenizer 保守，只用于避免超出模型上下文，不参与打分；真实 token 计数仍由 embedding runtime 决定。
+- **多视角增加编码、存储与查询成本** → 分开记录 build embedding 次数、index 行数/体积、query embedding 次数与全量点积耗时；不以 97 条样本推断生产延迟。
+- **clause 聚合没有语义角色** → clause 拆解没有 `intent`/`moment` 角色，单次聚合只能靠"每个 clause 的余弦都要计入平均"这一约束；不得据此宣称某个手工权重最优，也不得把聚合分数当成已校准的相关性概率。任何额外的跨-clause 惩罚项（如最弱-clause 混合）必须先做单变量对照，因为实测它会连正确 Practice 一起压低。
+- **轮次绝对分不可比** → 不同 clause 的余弦尺度不同，合并只看每轮名次；不得把跨轮绝对分数直接相加，也不得沿用旧实际余弦阈值。
+- **多轮/名次融合会丢掉向量相似度** → reciprocal rank fusion 只吃名次，等于用相对排序替代余弦；而且轮数多的族会淹没轮数少的族。历史上 §16–§18 的二层 RRF 组合即因此被撤回；若将来重新引入任何多轮机制，必须重新论证它仍在做向量检索，而不是换成另一套排序算法。
+- **旧 index 被误当成多视角表示** → Profile/document projection/index version 同步升级；旧 artifact 状态为 incompatible，完整重建失败时保留旧文件但不得查询为当前结果。
 
 ## Migration Plan
 
-1. 明确产品内部 `N` 与用户 `K` 的独立语义，拆分 Engine 候选截断与最终输出截断；保持并验证原排序结果不变。
-2. 定义本地 harness 请求/响应、启动入口和协议版本；在 Engine 同一次 query/snapshot 生命周期中接出候选和最终 ID 名单。
-3. 增加 stdin/stdout harness；校验 IDs 唯一、final IDs 属于 candidate IDs、失败不返回部分名单，retry 丢弃失败尝试结果。
-4. benchmark runner 在固定 Lorelum commit 中运行所有固定案例；先校验协议和 scorer，再冻结 baseline 版本及原始逐例结果。
-5. 另行在 test-owned 隔离 worktree/Store 中运行一次现有正常 CLI query，在终端观察返回 IDs；不与 harness 名单合并为一次 trace，并在 merge 前清除 test-owned 产物。
-6. baseline 冻结后，按逐例召回/最终排序分类选最小任务感知改动；后续比较仅更换 Lorelum build，保持其它输入和配置固定。
-7. 若排序/投射改变持久化表示才迁移 Profile/index；随后运行 Engine 及相关 package tests、typecheck、lint。
+1. 将 semantic projection 拆为 `full`、`task-card` 与带标题路径的 `body` views；去掉进入 embedding 的裸 id/slug 与字段标签，按估算 token 预算切块，并让 view recipe 与 digest 进入 Profile。
+2. 将 persisted vector schema 改为 `(practice_id, view_id)`，同步 Store-local index、ProjectContext complete/progress artifact 与 shared vector cache。
+3. 增量 build 按 view digest 复用；Profile/index version 升级后，旧单向量 index 必须重建。
+4. reader 先按 clause 拆 query、忽略 `full` 的常规打分、在同一 Practice 内平衡 task-card/body，再按 query view 权重把这几个 clause 分数加权平均成一个 Practice 分数；全量 eligible Practice 排序后才应用 `K`，canonical assembly 与 snapshot retry 保持不变。整个打分只发生一次，没有轮次、RRF、槽位或额外的跨-clause 惩罚项。
+5. 运行 migration、focused Engine/ProjectContext tests、package tests、typecheck、lint 与 OpenSpec strict validation。
+6. 在新的冻结 build 上运行相同模型、query/Pack、N/K、scorer 与环境的 benchmark；Profile 本就随表示改变，因此 baseline 用旧 Profile 的 artifact、新 build 用新 Profile 的 artifact，两侧分别记录 Profile ID 与 corpus digest，报告 candidate recall、final ranking、scope error、chunk/view 成本和失败反例；不得把本轮与旧 BM25 build 的收益合并陈述，也不得宣称“同一 Profile”下对比。
+7. 自动 query clause 拆解与按名次的轮次合并已进入默认路径；下一步可把 `intent`/`moment`/`artifact`/`constraints`/`domain` 做成独立 query views，让每轮带语义角色并支持按轮加权，但不得把该实验写成当前产品默认或宣称某个手工权重最优。
 
 ## Open Questions
 
 benchmark 仓库的关联 Issue/OpenSpec、案例 schema 和记录契约由其实施计划处理；本 change 仅定义主仓库的 harness 依赖边界。若 benchmark 无法固定有效的 Pack/Store 或 checkout identity，先暂停正式 baseline，不退回读取用户 Store。
+
+## 方案 C：角色对齐的隔离验证路线（2026-10-03）
+
+本节只补充后续实验规划，不更改本 change 的生产向量聚合合同。§21–24 的证据与公式冻结仍有效；开头 Context/早期候选池、FTS5 与 rerank 描述属于演进起点，不能作为恢复这些路径的授权。当前执行边界以本 change 的 retrieval-query delta、后续单次全量决策与生产公式 pin 为准。
+
+详细研究方案见 [角色对齐检索与受控学习验证路线](../../../docs/research/role-aligned-retrieval-plan.md)。它记录假设、归因条件、标注协议、增长压力、成本及阶段门槛，不定义新公共 API 或当前产品行为。
+
+- 首先做 G0/G1：控制组逐分复现、有来源的人工 query 角色，以及现有文档 views 上的隔离余弦交互。所有 eligible Practice 评分一次、K 最后应用；检索前不读 labels。
+- 分离 query 表示、交互聚合、文档表示与自动 analyzer 的介入条件；新增文档角色只能在单独条件中编码。共享策略不使用 Pack/Practice ID 特征，不增加词面、RRF、多轮或候选截断。
+- 允许未知与缺失角色；`stage` 自由字符串及自由 Markdown 不提供统一阶段或正文角色保证。必要条件不得仅因不是动作就降权。来源与版本可追溯，但推断不当作 canonical 事实。
+- 现有 50 例仅承担开发/回归；新 pilot 采用独立版本标注，保留未判定与评审分歧。不得改 v2 gold 或把可替代项追加到要求全部命中的 coreIds。
+- 人工角色无收益则停止自动化投入；有收益再验证内容增长、新 Pack/语言与自动化损失。门槛和运行成本预算须在新测试评分前冻结。
+- 不修改 `scoreSemanticPractice`、golden pin、公开 schema、持久化 Profile 或 active index。接入生产、Profile 身份解耦、持久化新 views、模型替换和反馈学习发布均需另行设计批准。
+- 首轮不实施自学习闭环，不自动收集/上传用户日志，不承诺自动适配所有领域或无限容量。仅规划产物完成不能勾选实验通过或生产接入任务。
+
+### G0 登记结果（2026-10-08）
+
+- 实验协议、manifest 字段、角色样本格式、单一候选策略 `role-aligned-policy/1`、新增 pilot 标注协议与成本预算 `role-aligned-cost-budget/1` 登记在 [G0 协议](../../../docs/research/role-aligned-g0-protocol.md)；实现位于 `packages/backend/src/benchmark/role-aligned/`，只是 benchmark 内部工具，不进入包 exports、CLI 或 Backend API，不改变本 change 的生产向量聚合合同。
+- 评分阶段在 manifest 状态为 complete 且全量排名与逐对比对产物的 digest 吻合之前不读取 labels；输入缺失/不一致/损坏、运行失败、协议违规与评分不一致都是实验错误，不会被计为检索 miss。
+- G0 通过只说明实验基础可重放、可归因，不说明方案 C 有效；G1 仍需独立来源的角色标注与新 pilot，且须另行确认后开始。

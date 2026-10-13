@@ -438,6 +438,27 @@ test("candidate digest mismatch is a typed query failure", async () => {
   });
 });
 
+test("a digest mismatch outside the result limit still fails the attempt", async () => {
+  await withRoot(async (rootPath) => {
+    const domain = detailedPractice({ id: "domain.overlap", title: "domain", stage: "implementation", techStack: ["typescript"], body: "domain", appliesWhen: "domain" });
+    const current = detailedPractice({ id: "task.current", title: "task", stage: "implementation", techStack: ["typescript"], body: "task", appliesWhen: "task" });
+    const store = createStore(rootPath, [domain, current]);
+    const embedding = port();
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    await build(rootPath, store, profile, embedding);
+    const trace = semanticTrace(store, profile, embedding);
+    const request = { text: taskRequest, candidateWidth: 2, resultLimit: 1 };
+    const clean = await trace.query({ rootPath }, request);
+    const lowerRanked = clean.candidateIds.find((id) => id !== clean.finalIds[0])!;
+    store.practices = [domain, current].map((item) =>
+      item.practiceId === lowerRanked ? { ...item, contentDigest: "f".repeat(64) } : item,
+    );
+    await expect(trace.query({ rootPath }, request)).rejects.toBeInstanceOf(
+      SemanticIndexQueryError,
+    );
+  });
+});
+
 test("discards candidate IDs from a snapshot attempt that is retried", async () => {
   await withRoot(async (rootPath) => {
     const stale = practice("platform.a-stale");

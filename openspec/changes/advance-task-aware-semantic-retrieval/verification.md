@@ -1222,7 +1222,7 @@ scope（Q 1、Q+I 2）与 forbidden-before-core（均 0）满足不高于 2 / 1�
 - 判断包字段：`request`（原文）、候选的 `title`、`applies_when`、`exceptions`（"Exceptions and boundaries" 段前 600 字符）。不含正文、向量分数、名次、来源或任何标签。
 - 判断类别：`fit` / `same-topic` / `not-applicable`。判断标准与提示词原文登记于 `docs/research/advanced-retrieval-handoff.md`。
 - 判断计数：fit 157，same-topic 290，not-applicable 1209；平均每条请求 2.28 个 fit。
-- 原始判断与分片保存于 `C:\Users\HP\.codex\lorelum-g1\rerank\subagent\`，不提交。
+- 原始判断与分片保存于仓库外的私有运行目录（路径不入库），不提交。
 
 ### 27.3 结果（69 条请求，前 5 命中）
 
@@ -1281,7 +1281,7 @@ scope（Q 1、Q+I 2）与 forbidden-before-core（均 0）满足不高于 2 / 1�
 - `queries-v1.json`：revision `issue236-v1`，40 条，sha256 `6ef0db67e8e89097fd338e486669ee2887a9dc81b67582d5fb3c85053789a39a`。
 - 重放：`control-cli replay`（生产 `scoreSemanticPractice` 公式），store `store-6bf1e1b-v4`（97 Practice / 1232 views），模型 granite Q4（`18e8ce8c…`），win32-x64 native manifest，4 threads。manifest `status=complete`；与生产评分比对 3880 对，`maxAbsDelta = 0`，排序完全相同。
 - CR 诊断：revision `issue236-cr-v2`，1 条，同一 store 与模型；比对 97 对，`maxAbsDelta = 0`。
-- 原始排名、标签、分片与脚本保存在仓库外 `C:\Users\HP\.codex\lorelum-g1\issue236\`，不提交。
+- 原始排名、标签、分片与脚本保存在仓库外的私有运行目录（路径不入库），不提交。
 
 ### 28.3 结果（v1，N=20，K=5，金标为两人交集，有金标 34 条）
 

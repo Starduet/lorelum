@@ -56,25 +56,13 @@ semantic retrieval SHALL 对所有 eligible Practice 计算相似度聚合和排
 - **WHEN** semantic retrieval 对全量 eligible Practice 成功完成
 - **THEN** public result SHALL 至多包含请求数量的 Practice summary，且不新增内部排名诊断字段
 
-### Requirement: Bounded lexical evidence preserves candidate observation
-semantic retrieval SHALL 使用同一次 query attempt 的 canonical 内容计算辅助词面证据；MUST 在最终排序前完成所有候选的 canonical digest 校验，并按 reader 顺序保留内部候选观察名单。query 中的普通代词 MUST 不因技术复合词被拆分而获得匹配证据，近同分且有效匹配词数相同的候选 MUST 不因候选池极值归一化而获得最大幅度的加分差。部分匹配的唯一候选 MUST 不仅因为唯一命中而获得满额词面加分。计算已选排序所需的能力失败时 MUST 返回既有 typed query failure，不成功返回未声明的替代顺序。
+### Requirement: Candidate observation is validated before ordering
+semantic retrieval MUST 在同一次 query attempt 内，对全部 N 个 reader 候选完成 canonical digest 与 summary 校验之后，才记录内部 candidateIds。内部 candidateIds MUST 保持 reader 顺序，finalIds MUST 只从已校验的候选中截取 K 项。任一候选校验失败时，该 attempt MUST 整体丢弃并按既有 retry 或 typed failure 处理，不得返回候选名单。语义排序 MUST 仅由 query 与 Practice 视角的向量相似度决定，不得引入词面、关键词或 BM25 通道。
 
 #### Scenario: Reader order differs from final order
-- **WHEN** 两个候选完成同一 snapshot 的 canonical 校验，且辅助排序改变它们的顺序
+- **WHEN** 两个候选完成同一 snapshot 的 canonical 校验，且最终排序改变它们的顺序
 - **THEN** 内部 candidateIds SHALL 保持 reader 顺序，finalIds SHALL 使用最终顺序，且都只属于成功 attempt
 
-#### Scenario: Technical compound is not a pronoun match
-- **WHEN** 普通代词与 Practice 中技术复合词的某个拆分片段相同，而复合词本身没有被 query 提及
-- **THEN** 系统 MUST 不把该片段作为当前任务的词面匹配，但明确请求该技术复合词时仍可匹配
-
-#### Scenario: Weak partial match does not become full evidence
-- **WHEN** 一个候选只匹配有效 query 的部分词，且它是唯一词面命中
-- **THEN** 词面增强 SHALL 受有效匹配词证据约束，不得仅因候选池中没有其他命中而取满额
-
-#### Scenario: Signal failure does not return a hidden alternative ranking
-- **WHEN** 当前请求需要计算辅助词面信号，但排序所需的 FTS 能力不可用
-- **THEN** query SHALL 返回既有 typed failure，内部 harness SHALL 不返回任何候选或最终名单
-
-#### Scenario: Unmatched background does not dilute existing lexical evidence
-- **WHEN** query 追加了一组对同一候选池的任何文档都不匹配的背景词，候选与原匹配保持不变
-- **THEN** 既有候选的词面强度 SHALL 保持不变，而不因 query 变长被降低
+#### Scenario: Invalid candidate discards the whole attempt
+- **WHEN** N 个候选中有任一候选的 canonical digest 校验失败
+- **THEN** 该 attempt SHALL 不记录 candidateIds，也不返回 finalIds；retry 或 typed failure 按既有规则处理

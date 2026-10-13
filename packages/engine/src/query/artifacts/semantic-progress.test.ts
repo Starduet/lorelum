@@ -4,12 +4,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createEmbeddingProfile } from "../semantic";
+import { projectSemanticPractice } from "../semantic/projection";
+import type { EffectivePractice } from "../../local-store";
 import { createIsolatedProjectSandbox } from "../../project-context/project-sandbox.test-helper";
 import { resolveProjectContext } from "../../project-context/resolver";
 import { ContentAddressedSemanticProgressService } from "./semantic-progress";
 import { contentArtifactVectorCachePaths } from "./cache";
 
 const encodingId = "b".repeat(64);
+
+/** Total embedded views for a corpus; keeps these assertions recipe-agnostic. */
+function embeddedViewCount(practices: readonly EffectivePractice[]): number {
+  return practices.reduce(
+    (total, practice) => total + projectSemanticPractice(practice).views.length,
+    0,
+  );
+}
 
 async function waitFor(check: () => Promise<boolean>): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -57,12 +67,12 @@ test("publishes each completed ProjectContext vector batch for partial query bef
     let documentCalls = 0;
     let queryCalls = 0;
     const documentEmbedding = {
+      // maxBatchSize counts Practices per batch, so one Practice (three views:
+      // full, task-card, body) completes per call.
       maxBatchSize: 1,
       async embed(inputs: readonly string[]) {
-        if (inputs.length === 1 && inputs[0]?.startsWith("Practice:")) {
-          documentCalls += 1;
-          if (documentCalls === 2) await second;
-        }
+        documentCalls += 1;
+        if (documentCalls === 2) await second;
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
     };
@@ -125,11 +135,11 @@ test("reuses shared vectors when a new ProjectContext artifact keeps the same pr
     await new ContentAddressedSemanticProgressService(first, cache, profile, {
       maxBatchSize: 4,
       async embed(inputs) {
-        initialDocumentCalls += inputs.filter((input) => input.startsWith("Practice:")).length;
+        initialDocumentCalls += inputs.length;
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
     }).build();
-    expect(initialDocumentCalls).toBe(2);
+    expect(initialDocumentCalls).toBe(embeddedViewCount(first.practices));
 
     // Severity changes canonical Practice content but is intentionally outside
     // the semantic projection, so the new corpus gets a fresh artifact while
@@ -155,7 +165,7 @@ test("reuses shared vectors when a new ProjectContext artifact keeps the same pr
     await new ContentAddressedSemanticProgressService(second, cache, profile, {
       maxBatchSize: 4,
       async embed(inputs) {
-        secondDocumentCalls += inputs.filter((input) => input.startsWith("Practice:")).length;
+        secondDocumentCalls += inputs.length;
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
     }).build();
@@ -197,11 +207,11 @@ test("shared vectors never cross an embedding Profile or changed semantic projec
     await new ContentAddressedSemanticProgressService(first, cache, otherProfile, {
       maxBatchSize: 4,
       async embed(inputs) {
-        incompatibleProfileEmbeds += inputs.filter((input) => input.startsWith("Practice:")).length;
+        incompatibleProfileEmbeds += inputs.length;
         return { encodingId: otherEncodingId, vectors: inputs.map(() => [1, 0]) };
       },
     }).build();
-    expect(incompatibleProfileEmbeds).toBe(2);
+    expect(incompatibleProfileEmbeds).toBe(embeddedViewCount(first.practices));
 
     const changedPractice = join(
       root,
@@ -221,11 +231,13 @@ test("shared vectors never cross an embedding Profile or changed semantic projec
     await new ContentAddressedSemanticProgressService(changed, cache, profile, {
       maxBatchSize: 4,
       async embed(inputs) {
-        changedProjectionEmbeds += inputs.filter((input) => input.startsWith("Practice:")).length;
+        changedProjectionEmbeds += inputs.length;
         return { encodingId, vectors: inputs.map(() => [1, 0]) };
       },
     }).build();
-    expect(changedProjectionEmbeds).toBe(1);
+    // Appending body text changes the full view and adds a second body chunk;
+    // the existing first body chunk and the task card are unchanged and reused.
+    expect(changedProjectionEmbeds).toBe(2);
   } finally {
     await Promise.all([
       rm(root, { recursive: true, force: true }),

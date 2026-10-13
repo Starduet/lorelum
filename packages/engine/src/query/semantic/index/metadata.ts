@@ -2,8 +2,8 @@ import type { StoreSnapshotIdentity } from "../../../local-store";
 import type { EmbeddingProfile } from "../profile";
 import { SemanticIndexError } from "../errors";
 
-/** Drizzle-managed index baseline; v1 derived files are rebuilt under v2. */
-export const SEMANTIC_INDEX_VERSION = 2;
+/** Drizzle-managed index baseline; single-vector files are rebuilt under v3. */
+export const SEMANTIC_INDEX_VERSION = 3;
 
 export type SemanticIndexState = "missing" | "ready" | "stale" | "incompatible";
 

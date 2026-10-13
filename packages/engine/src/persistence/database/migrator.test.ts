@@ -76,6 +76,20 @@ test("Drizzle semantic init creates the metadata and vector tables", () => {
         )
         .all(),
     ).toEqual([{ name: "semantic_index_metadata" }, { name: "semantic_vectors" }]);
+    expect(
+      connection.client
+        .query("PRAGMA table_info(semantic_vectors)")
+        .all()
+        .map((row) => (row as { readonly name: string }).name),
+    ).toEqual([
+      "practice_id",
+      "view_id",
+      "view_kind",
+      "view_ordinal",
+      "content_digest",
+      "projection_digest",
+      "vector",
+    ]);
   } finally {
     connection.close();
   }
@@ -107,7 +121,7 @@ test.each([projectSemanticIndexDatabaseDefinition, semanticProgressIndexDatabase
         connection.client.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get() as {
           readonly count: number;
         },
-      ).toEqual({ count: 1 });
+      ).toEqual({ count: 3 });
     } finally {
       connection.close();
     }

@@ -24,7 +24,6 @@ import type { SemanticIndexPaths } from "./index/paths";
 import type { SemanticIndexDatabaseDefinition } from "./index/database";
 import type { EmbeddingProfile } from "./profile";
 import { assembleSemanticArtifactResult, searchSemanticArtifact } from "./read";
-import { orderSemanticCandidatesByTaskRelevance, type SemanticTaskSignal } from "./task-relevance";
 
 const MAX_QUERY_RETRIES = 3;
 
@@ -62,11 +61,6 @@ export interface SemanticQueryDependencies {
   readonly embedding: EmbeddingPort;
   readonly paths?: (root: StorageRoot, profileId: string) => SemanticIndexPaths;
   readonly definition?: SemanticIndexDatabaseDefinition;
-}
-
-/** Only the non-barrel benchmark trace exposes request-local test injection. */
-interface SemanticQueryExecutionDependencies extends SemanticQueryDependencies {
-  readonly taskSignal?: SemanticTaskSignal;
 }
 
 interface QueryCoverage {
@@ -163,32 +157,21 @@ function semanticCandidateIds(candidates: readonly SemanticCandidate[]): readonl
   return Object.freeze(ids);
 }
 
+/**
+ * The ranking is computed over every eligible Practice. The requested top-k is
+ * applied only after the full ordering exists, and the benchmark-only candidate
+ * cap below limits which ids are reported, never which ids are scored.
+ */
+const ALL_SEMANTIC_CANDIDATES = Number.MAX_SAFE_INTEGER;
+
 interface SemanticQueryWindow {
   readonly request: Required<QueryRequest>;
-  readonly candidateWidth: number;
   readonly resultLimit: number;
 }
 
-function semanticQueryWindow(
-  request: QueryRequest,
-  candidateWidth: number,
-  resultLimit: number,
-): SemanticQueryWindow {
-  const parsed = parseQueryRequest({ text: request.text, limit: resultLimit });
-  const parsedCandidateWidth = parseQueryRequest({
-    text: parsed.text,
-    limit: candidateWidth,
-  }).limit;
-  if (parsedCandidateWidth < parsed.limit) {
-    throw new InvalidQueryRequestError(
-      "Semantic candidate width must be at least the result limit",
-    );
-  }
-  return Object.freeze({
-    request: parsed,
-    candidateWidth: parsedCandidateWidth,
-    resultLimit: parsed.limit,
-  });
+function semanticQueryWindow(request: QueryRequest): SemanticQueryWindow {
+  const parsed = parseQueryRequest(request);
+  return Object.freeze({ request: parsed, resultLimit: parsed.limit });
 }
 
 interface SemanticQueryExecution {
@@ -198,9 +181,11 @@ interface SemanticQueryExecution {
 }
 
 async function executeSemanticQuery(
-  dependencies: SemanticQueryExecutionDependencies,
+  dependencies: SemanticQueryDependencies,
   root: StorageRoot,
   window: SemanticQueryWindow,
+  /** Maximum ids reported to the benchmark harness; scoring always uses the full corpus. */
+  candidateCap?: number,
 ): Promise<SemanticQueryExecution> {
   const { store, profile, embedding } = dependencies;
   const pathsFor = dependencies.paths;
@@ -230,43 +215,31 @@ async function executeSemanticQuery(
         reader,
         profile,
         embedding,
-        request: { text: window.request.text, limit: window.candidateWidth },
+        text: window.request.text,
+        candidateLimit: ALL_SEMANTIC_CANDIDATES,
         excludedPracticeIds: coverage.excludedPracticeIds,
       });
-      const candidateReadIds = candidates.map((candidate) => candidate.practiceId);
+      const rankedCandidateIds = semanticCandidateIds(candidates);
       // eslint-disable-next-line no-await-in-loop -- final read validates this retry's snapshot.
+      // Validate all N canonical candidates before observing or returning them.
       const practices = await store.readEffectivePracticesAtSnapshot(
         root,
         coverage.identity,
-        candidateReadIds,
+        candidates.map((candidate) => candidate.practiceId),
       );
-      // Validate all N canonical candidates before observing or ranking them.
       const assembled = assembleSemanticArtifactResult({
         profile,
         coverage: coverage.coverage,
         practices,
         candidates,
       });
-      const candidateIds = semanticCandidateIds(candidates);
-      // Both observations belong to this successful snapshot attempt. Sorting
-      // never mutates the reader order and never re-reads canonical state.
-      const orderedCandidates = orderSemanticCandidatesByTaskRelevance({
-        text: window.request.text,
-        candidates,
-        practices,
-        ...(dependencies.taskSignal === undefined ? {} : { signal: dependencies.taskSignal }),
-      });
-      const summaries = new Map(assembled.results.map((hit) => [hit.practiceId, hit]));
-      const results = Object.freeze(
-        orderedCandidates.slice(0, window.resultLimit).map((candidate) =>
-          // Ordering preserves membership of the already-validated candidate set.
-          summaries.get(candidate.practiceId)!,
-        ),
-      );
-      return Object.freeze({
-        result: Object.freeze({ ...assembled, results }),
-        candidateIds,
-      });
+      const results = Object.freeze(assembled.results.slice(0, window.resultLimit));
+      // Candidate ids describe the full scored ordering; the cap only bounds reporting.
+      const candidateIds =
+        candidateCap === undefined
+          ? rankedCandidateIds
+          : Object.freeze(rankedCandidateIds.slice(0, candidateCap));
+      return Object.freeze({ result: Object.freeze({ ...assembled, results }), candidateIds });
     } catch (error) {
       if (error instanceof StoreSnapshotChangedError) {
         if (attempt + 1 < MAX_QUERY_RETRIES) continue;
@@ -285,16 +258,7 @@ export function createSemanticQueryService(
 ): SemanticQueryService {
   return Object.freeze({
     async query(root: StorageRoot, request: QueryRequest): Promise<SemanticQueryResult> {
-      const parsed = parseQueryRequest(request);
-      const resultLimit = parsed.limit;
-      const candidateWidth = Math.max(20, resultLimit);
-      return (
-        await executeSemanticQuery(
-          dependencies,
-          root,
-          semanticQueryWindow(parsed, candidateWidth, resultLimit),
-        )
-      ).result;
+      return (await executeSemanticQuery(dependencies, root, semanticQueryWindow(request))).result;
     },
   });
 }
@@ -303,9 +267,7 @@ export function createSemanticQueryService(
  * Internal measurement seam for the repository-local benchmark harness.
  * Deliberately not re-exported from the Engine package entry points.
  */
-export function createSemanticCandidateTraceService(
-  dependencies: SemanticQueryExecutionDependencies,
-) {
+export function createSemanticCandidateTraceService(dependencies: SemanticQueryDependencies) {
   return Object.freeze({
     async query(
       root: StorageRoot,
@@ -315,12 +277,17 @@ export function createSemanticCandidateTraceService(
         readonly resultLimit: number;
       },
     ): Promise<{ readonly candidateIds: readonly string[]; readonly finalIds: readonly string[] }> {
-      const parsed = parseQueryRequest({ text: request.text, limit: request.resultLimit });
-      const resultLimit = parsed.limit;
+      const window = semanticQueryWindow({ text: request.text, limit: request.resultLimit });
+      if (request.candidateWidth < window.resultLimit) {
+        throw new InvalidQueryRequestError(
+          "Semantic candidate width must be at least the result limit",
+        );
+      }
       const execution = await executeSemanticQuery(
         dependencies,
         root,
-        semanticQueryWindow(parsed, request.candidateWidth, resultLimit),
+        window,
+        request.candidateWidth,
       );
       return Object.freeze({
         candidateIds: execution.candidateIds,

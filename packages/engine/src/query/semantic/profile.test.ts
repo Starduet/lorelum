@@ -2,13 +2,14 @@ import { expect, test } from "bun:test";
 
 import { createEmbeddingProfile } from "./profile";
 
-test("preserves the persisted Profile identity shape", () => {
+test("pins the representation-group multi-view Profile identity shape", () => {
   const profile = createEmbeddingProfile({
     encodingId: "a".repeat(64),
     dimensions: 384,
   });
 
+  expect(profile.documentProjectionVersion).toBe(4);
   expect(profile.profileId).toBe(
-    "5e4266c4f7b1240288d84df6cf089c14590ab1ed5401e55ae3ebdb3928614f14",
+    "58102707e73827188baac74c285066e0ae9a6c11a27a662751d89e4c2e7caaef",
   );
 });

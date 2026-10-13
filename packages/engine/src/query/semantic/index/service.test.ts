@@ -172,7 +172,7 @@ test("binds the active index to the full Store identity and reports stale", asyn
     });
     current = identity(rootPath, 2);
     await expect(service.status({ rootPath })).resolves.toMatchObject({ state: "stale" });
-    expect(vectorPort.calls).toHaveLength(1);
+    expect(vectorPort.calls.flat()).toHaveLength(3);
   });
 });
 
@@ -350,10 +350,15 @@ test("incrementally encodes only final added and projection-changed Practices", 
       built: true,
       status: { state: "ready", vectorCount: 2 },
     });
-    expect(vectorPort.calls).toHaveLength(2);
-    expect(vectorPort.calls[1]).toHaveLength(2);
-    expect(vectorPort.calls[1]?.join("\n")).toContain("Practice: platform.original");
-    expect(vectorPort.calls[1]?.join("\n")).toContain("Practice: platform.added");
+    // 3 views for the first practice, then the edited body invalidates the full
+    // and body views (the task card is reused) plus the 3 views of the added
+    // practice: 3 + 2 + 3 = 8 embeddings.
+    expect(vectorPort.calls.flat()).toHaveLength(8);
+    const embedded = vectorPort.calls.slice(2).flat().join("\n");
+    expect(embedded).toContain("Use the current canonical content.");
+    expect(embedded).toContain("Keep canonical content in LocalStore.");
+    expect(embedded).not.toContain("platform.original");
+    expect(embedded).not.toContain("platform.added");
     expect(fenceIdentities).toEqual([first, second]);
   });
 });
@@ -384,9 +389,9 @@ test("uses LocalStore retained history and publication fence for an actual Pack 
       built: true,
       status: { state: "ready", vectorCount: 2 },
     });
-    expect(vectorPort.calls).toHaveLength(2);
-    expect(vectorPort.calls[0]).toHaveLength(1);
-    expect(vectorPort.calls[1]).toHaveLength(2);
+    expect(vectorPort.calls.flat()).toHaveLength(8);
+    expect(vectorPort.calls.slice(0, 2).flat()).toHaveLength(3);
+    expect(vectorPort.calls.slice(2).flat()).toHaveLength(5);
     await expect(service.status({ rootPath })).resolves.toMatchObject({
       state: "ready",
       vectorCount: 2,
@@ -433,15 +438,18 @@ test("reuses a vector when only non-projected canonical content changes", async 
 
     await service.build({ rootPath });
     current = second;
+    const callsBeforeSecondBuild = vectorPort.calls.length;
     await service.build({ rootPath });
-    expect(vectorPort.calls).toHaveLength(1);
+    expect(vectorPort.calls).toHaveLength(callsBeforeSecondBuild);
     const database = new Database(activeIndexPath(rootPath, profile.profileId), { readonly: true });
     try {
       expect(database.query("SELECT COUNT(*) AS count FROM __drizzle_migrations").get()).toEqual({
-        count: 1,
+        count: 3,
       });
       const row = database
-        .query("SELECT content_digest FROM semantic_vectors WHERE practice_id = ?")
+        .query(
+          "SELECT content_digest FROM semantic_vectors WHERE practice_id = ? AND view_id = 'task-card:0000'",
+        )
         .get("platform.original") as { readonly content_digest: string };
       expect(row.content_digest).toBe(changed.contentDigest);
     } finally {
@@ -487,7 +495,7 @@ test("uses a metadata-only incremental publication for source-only Store changes
       built: true,
       status: { state: "ready", vectorCount: 1 },
     });
-    expect(vectorPort.calls).toHaveLength(1);
+    expect(vectorPort.calls.flat()).toHaveLength(3);
     expect(fenceIdentities).toEqual([first, sourceOnly]);
   });
 });
@@ -529,7 +537,7 @@ test("removes invalidated vectors without loading the embedding port", async () 
       built: true,
       status: { state: "ready", vectorCount: 0 },
     });
-    expect(vectorPort.calls).toHaveLength(1);
+    expect(vectorPort.calls.flat()).toHaveLength(3);
   });
 });
 
@@ -571,7 +579,7 @@ test("falls back to a full build when retained Store history is unavailable", as
       status: { state: "ready", vectorCount: 2 },
     });
     expect(snapshots).toBe(2);
-    expect(vectorPort.calls).toHaveLength(2);
-    expect(vectorPort.calls[1]).toHaveLength(2);
+    expect(vectorPort.calls.flat()).toHaveLength(9);
+    expect(vectorPort.calls.slice(2).flat()).toHaveLength(6);
   });
 });

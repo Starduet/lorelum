@@ -21,7 +21,11 @@ import {
   SemanticIndexSnapshotChangedError,
 } from "../errors";
 import type { EmbeddingProfile } from "../profile";
-import { projectSemanticPractice, type SemanticDocument } from "../projection";
+import {
+  projectSemanticPractice,
+  type SemanticDocument,
+  type SemanticProjectionView,
+} from "../projection";
 import {
   metadataFor,
   isCompatibleMetadata,
@@ -34,7 +38,7 @@ import {
   applySemanticIndexChanges,
   initializeSemanticIndex,
   readSemanticIndexMetadata,
-  readSemanticIndexVector,
+  readSemanticIndexVectors,
   type SemanticIndexConnection,
   type SemanticIndexDatabaseDefinition,
   verifySemanticIndexIntegrity,
@@ -99,23 +103,33 @@ async function activeMetadata(
   }
 }
 
-async function embedDocuments(
+async function embedViews(
   port: EmbeddingPort,
   profile: EmbeddingProfile,
-  documents: readonly SemanticDocument[],
+  views: readonly SemanticProjectionView[],
 ): Promise<readonly Float32Array[]> {
   if (!Number.isSafeInteger(port.maxBatchSize) || port.maxBatchSize < 1) {
     throw new SemanticEmbeddingError("Embedding batch limit is invalid");
   }
   const vectors: Float32Array[] = [];
-  for (let start = 0; start < documents.length; start += port.maxBatchSize) {
-    const batch = documents.slice(start, start + port.maxBatchSize);
-    const inputs = batch.map((document) => document.text);
+  for (let start = 0; start < views.length; start += port.maxBatchSize) {
+    const batch = views.slice(start, start + port.maxBatchSize);
+    const inputs = batch.map((view) => view.text);
     // eslint-disable-next-line no-await-in-loop -- the Backend runtime admits one batch at a time.
     const result = await port.embed(inputs);
     vectors.push(...validateEmbeddingBatch(profile, inputs, result));
   }
   return Object.freeze(vectors);
+}
+
+function viewsForDocuments(
+  documents: readonly SemanticDocument[],
+): readonly SemanticProjectionView[] {
+  return Object.freeze(documents.flatMap((document) => document.views));
+}
+
+function vectorViewKey(practiceId: string, viewId: string): string {
+  return `${practiceId}\0${viewId}`;
 }
 
 export function createSemanticIndexService(
@@ -158,11 +172,24 @@ export function createSemanticIndexService(
   ): Promise<SemanticIndexBuildResult> => {
     const snapshot = await store.readEffectivePracticeSnapshot(root);
     const documents = Object.freeze(snapshot.practices.map(projectSemanticPractice));
-    const vectors =
-      documents.length === 0
-        ? Object.freeze([])
-        : await embedDocuments(embedding, profile, documents);
-    const metadata = metadataFor(snapshot.identity, profile, vectors.length);
+    const views = viewsForDocuments(documents);
+    const flatVectors =
+      views.length === 0 ? Object.freeze([]) : await embedViews(embedding, profile, views);
+    let vectorIndex = 0;
+    const vectors = Object.freeze(
+      documents.map((document) =>
+        Object.freeze(
+          document.views.map(() => {
+            const vector = flatVectors[vectorIndex];
+            vectorIndex += 1;
+            if (vector === undefined)
+              throw new SemanticIndexError("Semantic index view vector is missing");
+            return vector;
+          }),
+        ),
+      ),
+    );
+    const metadata = metadataFor(snapshot.identity, profile, documents.length);
     await mkdir(indexPaths.directory, { recursive: true });
     const staging = join(indexPaths.directory, `build-${randomUUID()}.sqlite`);
     let connection: SemanticIndexConnection | undefined;
@@ -226,24 +253,30 @@ export function createSemanticIndexService(
       const plan = planIncrementalSemanticIndex(
         changes.deltas.map((change) => change.delta),
         changes.currentPractices,
-        (practiceId) => readSemanticIndexVector(connection!, practiceId, profile.dimensions),
+        (practiceId) => readSemanticIndexVectors(connection!, practiceId, profile.dimensions),
       );
-      const embedded = await embedDocuments(embedding, profile, plan.documentsToEmbed);
-      const embeddedByPracticeId = new Map(
-        plan.documentsToEmbed.map(
-          (document, index) => [document.practiceId, embedded[index]!] as const,
+      const embedded = await embedViews(embedding, profile, plan.viewsToEmbed);
+      const embeddedByViewId = new Map(
+        plan.viewsToEmbed.map(
+          (view, index) => [vectorViewKey(view.practiceId, view.viewId), embedded[index]!] as const,
         ),
       );
-      const vectors = plan.documents.map((document) => {
-        const reused = plan.reusableVectors.get(document.practiceId);
-        const embeddedVector = embeddedByPracticeId.get(document.practiceId);
-        if (reused !== undefined) return reused;
-        if (embeddedVector !== undefined) return embeddedVector;
-        throw new SemanticIndexError("Incremental semantic index vector is missing");
-      });
+      const vectors = plan.documents.map((document) =>
+        Object.freeze(
+          document.views.map((view) => {
+            const reused = plan.reusableVectors.get(document.practiceId)?.get(view.viewId);
+            const embeddedVector = embeddedByViewId.get(
+              vectorViewKey(document.practiceId, view.viewId),
+            );
+            if (reused !== undefined) return reused;
+            if (embeddedVector !== undefined) return embeddedVector;
+            throw new SemanticIndexError("Incremental semantic index view vector is missing");
+          }),
+        ),
+      );
       const written = applySemanticIndexChanges(
         connection,
-        metadataFor(changes.identity, profile, 0),
+        metadataFor(changes.identity, profile, plan.documents.length),
         plan.removedPracticeIds,
         plan.documents,
         vectors,

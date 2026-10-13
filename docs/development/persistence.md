@@ -14,7 +14,7 @@ Engine has Store-local and user-cache SQLite database kinds. They use one shared
 | --- | --- | --- | --- |
 | LocalStore | installed Pack catalog, effective Practices, sources, and revision records | `packages/engine/src/persistence/schemas/local-store.ts` | `packages/engine/src/persistence/migrations/local-store/` |
 | Store keyword index | Store-only FTS5 documents and the index checkpoint | `packages/engine/src/persistence/schemas/keyword-index.ts` | `packages/engine/src/persistence/migrations/keyword-index/` |
-| Store semantic index | Legacy Store-local Profile metadata and Practice vectors | `packages/engine/src/persistence/schemas/semantic-index.ts` | `packages/engine/src/persistence/migrations/semantic-index/` |
+| Store semantic index | Legacy Store-local Profile metadata and Practice content-view vectors | `packages/engine/src/persistence/schemas/semantic-index.ts` | `packages/engine/src/persistence/migrations/semantic-index/` |
 | Content-addressed cache catalog | Artifact inventory without source paths or Practice content | `packages/engine/src/persistence/schemas/project-cache.ts` | `packages/engine/src/persistence/migrations/project-cache/` |
 | Shared vector cache | Reusable Profile/projection vectors | `packages/engine/src/persistence/schemas/semantic-vector-cache.ts` | `packages/engine/src/persistence/migrations/semantic-vector-cache/` |
 | Project keyword artifact | Content-addressed ProjectContext FTS5 artifact | `packages/engine/src/persistence/schemas/keyword-index.ts` | `packages/engine/src/persistence/migrations/project-keyword-index/` |
@@ -92,7 +92,7 @@ Store-only keyword and legacy semantic indexes remain Store-local derived state.
 - One SQLite transaction covers one physical database file. Do not claim a cross-file transaction exists.
 - LocalStore repository writes keep the catalog, effective Practice rows, revision records, and outbox state consistent within LocalStore.
 - Keyword FTS mutations and checkpoint updates share the owning Store-only or ProjectContext keyword-index transaction.
-- Semantic vector rows and semantic metadata share the owning Store-only, complete-artifact, or progress transaction; complete publication remains a separate close-and-rename step guarded by the current snapshot fence.
+- Semantic content-view rows and semantic metadata share the owning Store-only, complete-artifact, or progress transaction; complete publication remains a separate close-and-rename step guarded by the current snapshot fence.
 - Canonical query results are assembled from LocalStore or current ProjectContext sources. A keyword or semantic index supplies candidates and may be rebuilt, but does not become an alternate source for Practice content.
 
 ## Verification checklist

@@ -1,4 +1,4 @@
-import { count, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import type { SqliteConnection } from "../../../persistence/database/connection";
 import { migrateSqlite } from "../../../persistence/database/migrator";
@@ -11,7 +11,7 @@ import {
   semanticVectors,
 } from "../../../persistence/schemas/semantic-index";
 import { SemanticIndexError } from "../errors";
-import type { SemanticDocument } from "../projection";
+import type { SemanticDocument, SemanticViewKind } from "../projection";
 import type { SemanticIndexMetadata } from "./metadata";
 
 export type SemanticIndexConnection = SqliteConnection<
@@ -35,14 +35,34 @@ interface MetadataRow extends Record<string, unknown> {
   readonly vectorCount: number;
 }
 
+interface VectorRow {
+  readonly practiceId: string;
+  readonly viewId: string;
+  readonly viewKind: string;
+  readonly viewOrdinal: number;
+  readonly contentDigest: string;
+  readonly projectionDigest: string;
+  readonly vector: Uint8Array;
+}
+
 export interface SemanticIndexVector {
+  readonly viewId: string;
+  readonly viewKind: SemanticViewKind;
+  readonly viewOrdinal: number;
   readonly contentDigest: string;
   readonly projectionDigest: string;
   readonly vector: Float32Array;
 }
 
+const DIGEST = /^[a-f0-9]{64}$/;
+
 function positiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function viewKind(value: unknown): SemanticViewKind {
+  if (value === "full" || value === "task-card" || value === "body") return value;
+  throw new SemanticIndexError("Semantic index view kind is invalid");
 }
 
 function metadataFromRow(row: unknown): SemanticIndexMetadata {
@@ -56,8 +76,8 @@ function metadataFromRow(row: unknown): SemanticIndexMetadata {
     !positiveInteger(value.generation) ||
     !positiveInteger(value.effectiveRevision) ||
     typeof value.manifestDigest !== "string" ||
-    !/^[a-f0-9]{64}$/.test(value.profileId ?? "") ||
-    !/^[a-f0-9]{64}$/.test(value.encodingId ?? "") ||
+    !DIGEST.test(value.profileId ?? "") ||
+    !DIGEST.test(value.encodingId ?? "") ||
     !positiveInteger(value.dimensions) ||
     value.dimensions === 0 ||
     !positiveInteger(value.documentProjectionVersion) ||
@@ -112,6 +132,24 @@ function vectorFromBlob(value: unknown, dimensions: number): Float32Array {
   return new Float32Array(copy);
 }
 
+const VIEW_ID = /^(full|task-card|body):(\d{4,})$/;
+
+function validateViewIdentity(row: VectorRow): void {
+  if (
+    row.practiceId.length === 0 ||
+    !positiveInteger(row.viewOrdinal) ||
+    !DIGEST.test(row.contentDigest) ||
+    !DIGEST.test(row.projectionDigest)
+  ) {
+    throw new SemanticIndexError("Semantic index vector identity is invalid");
+  }
+  const kind = viewKind(row.viewKind);
+  const view = VIEW_ID.exec(row.viewId);
+  if (view === null || view[1] !== kind || Number(view[2]!) !== row.viewOrdinal) {
+    throw new SemanticIndexError("Semantic index view ID is invalid");
+  }
+}
+
 function metadataRow(connection: SemanticIndexConnection): MetadataRow | undefined {
   return connection.orm
     .select({
@@ -158,52 +196,121 @@ function updateMetadata(
 
 function finalMetadata(
   metadata: SemanticIndexMetadata,
-  nextVectorCount: number,
+  nextPracticeCount: number,
 ): SemanticIndexMetadata {
-  if (!Number.isSafeInteger(nextVectorCount) || nextVectorCount < 0) {
-    throw new SemanticIndexError("Semantic index vector count is invalid");
+  if (!Number.isSafeInteger(nextPracticeCount) || nextPracticeCount < 0) {
+    throw new SemanticIndexError("Semantic index Practice count is invalid");
   }
   return Object.freeze({
     ...metadata,
-    vectorCount: nextVectorCount,
+    vectorCount: nextPracticeCount,
   });
+}
+
+function countVectors(connection: SemanticIndexConnection): number {
+  return connection.orm
+    .select({ practiceId: semanticVectors.practiceId })
+    .from(semanticVectors)
+    .all().length;
+}
+
+function countPractices(connection: SemanticIndexConnection): number {
+  const rows = connection.orm
+    .select({ practiceId: semanticVectors.practiceId })
+    .from(semanticVectors)
+    .all();
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (typeof row.practiceId !== "string" || row.practiceId.length === 0) {
+      throw new SemanticIndexError("Semantic index Practice ID is invalid");
+    }
+    ids.add(row.practiceId);
+  }
+  return ids.size;
 }
 
 function vectorRows(
   documents: readonly SemanticDocument[],
-  vectors: readonly Float32Array[],
+  vectors: readonly (readonly Float32Array[])[],
   dimensions: number,
 ) {
-  return documents.map((document, index) => {
-    const vector = vectors[index]!;
-    const blob = vectorBlob(vector);
-    validateVectorBlob(blob, dimensions);
-    return {
-      practiceId: document.practiceId,
-      contentDigest: document.contentDigest,
-      projectionDigest: document.projectionDigest,
-      vector: blob,
-    };
-  });
+  const rows: {
+    readonly practiceId: string;
+    readonly viewId: string;
+    readonly viewKind: SemanticViewKind;
+    readonly viewOrdinal: number;
+    readonly contentDigest: string;
+    readonly projectionDigest: string;
+    readonly vector: Buffer;
+  }[] = [];
+  for (const [documentIndex, document] of documents.entries()) {
+    const documentVectors = vectors[documentIndex];
+    if (documentVectors === undefined || documentVectors.length !== document.views.length) {
+      throw new SemanticIndexError("Semantic index view vector counts differ");
+    }
+    for (const [viewIndex, view] of document.views.entries()) {
+      const blob = vectorBlob(documentVectors[viewIndex]!);
+      validateVectorBlob(blob, dimensions);
+      rows.push({
+        practiceId: document.practiceId,
+        viewId: view.viewId,
+        viewKind: view.viewKind,
+        viewOrdinal: view.ordinal,
+        contentDigest: document.contentDigest,
+        projectionDigest: view.projectionDigest,
+        vector: blob,
+      });
+    }
+  }
+  return rows;
 }
 
-function vectorCount(connection: SemanticIndexConnection): number {
-  const row = connection.orm.select({ count: count() }).from(semanticVectors).get();
-  if (row === undefined || !positiveInteger(row.count)) {
-    throw new SemanticIndexError("Semantic index vector count is inconsistent");
+function validateDocumentVectorShape(
+  documents: readonly SemanticDocument[],
+  vectors: readonly (readonly Float32Array[])[],
+): void {
+  if (documents.length !== vectors.length) {
+    throw new SemanticIndexError("Semantic index document and vector counts differ");
   }
-  return row.count;
+  const practiceIds = new Set<string>();
+  const viewIds = new Set<string>();
+  for (const [documentIndex, document] of documents.entries()) {
+    if (practiceIds.has(document.practiceId)) {
+      throw new SemanticIndexError("Semantic index contains a duplicate Practice");
+    }
+    practiceIds.add(document.practiceId);
+    const documentVectors = vectors[documentIndex];
+    if (documentVectors === undefined || documentVectors.length !== document.views.length) {
+      throw new SemanticIndexError("Semantic index view vector counts differ");
+    }
+    for (const view of document.views) {
+      const key = `${document.practiceId}\0${view.viewId}`;
+      if (viewIds.has(key))
+        throw new SemanticIndexError("Semantic index contains a duplicate view");
+      viewIds.add(key);
+      validateViewIdentity({
+        practiceId: document.practiceId,
+        viewId: view.viewId,
+        viewKind: view.viewKind,
+        viewOrdinal: view.ordinal,
+        contentDigest: document.contentDigest,
+        projectionDigest: view.projectionDigest,
+        vector: new Uint8Array(),
+      });
+    }
+  }
 }
 
 export function initializeSemanticIndex(
   connection: SemanticIndexConnection,
   metadata: SemanticIndexMetadata,
   documents: readonly SemanticDocument[],
-  vectors: readonly Float32Array[],
+  vectors: readonly (readonly Float32Array[])[],
   definition: SemanticIndexDatabaseDefinition = semanticIndexDatabaseDefinition,
 ): void {
-  if (documents.length !== vectors.length || metadata.vectorCount !== documents.length) {
-    throw new SemanticIndexError("Semantic index document and vector counts differ");
+  validateDocumentVectorShape(documents, vectors);
+  if (metadata.vectorCount !== documents.length) {
+    throw new SemanticIndexError("Semantic index Practice count differs from its documents");
   }
   try {
     migrateSqlite(connection, definition);
@@ -218,39 +325,50 @@ export function initializeSemanticIndex(
   }
 }
 
-/** Read one validated vector for incremental reuse. */
-export function readSemanticIndexVector(
+function rowsFor(connection: SemanticIndexConnection, practiceId?: string): readonly VectorRow[] {
+  const query = connection.orm
+    .select({
+      practiceId: semanticVectors.practiceId,
+      viewId: semanticVectors.viewId,
+      viewKind: semanticVectors.viewKind,
+      viewOrdinal: semanticVectors.viewOrdinal,
+      contentDigest: semanticVectors.contentDigest,
+      projectionDigest: semanticVectors.projectionDigest,
+      vector: semanticVectors.vector,
+    })
+    .from(semanticVectors);
+  return Object.freeze(
+    (practiceId === undefined
+      ? query.all()
+      : query.where(eq(semanticVectors.practiceId, practiceId)).all()) as VectorRow[],
+  );
+}
+
+/** Read all validated content views for one Practice for incremental reuse. */
+export function readSemanticIndexVectors(
   connection: SemanticIndexConnection,
   practiceId: string,
   dimensions: number,
-): SemanticIndexVector | undefined {
+): readonly SemanticIndexVector[] | undefined {
   try {
-    const row = connection.orm
-      .select({
-        contentDigest: semanticVectors.contentDigest,
-        projectionDigest: semanticVectors.projectionDigest,
-        vector: semanticVectors.vector,
-      })
-      .from(semanticVectors)
-      .where(eq(semanticVectors.practiceId, practiceId))
-      .get();
-    if (row === undefined) return undefined;
-    if (
-      typeof row.contentDigest !== "string" ||
-      !/^[a-f0-9]{64}$/.test(row.contentDigest) ||
-      typeof row.projectionDigest !== "string" ||
-      !/^[a-f0-9]{64}$/.test(row.projectionDigest)
-    ) {
-      throw new SemanticIndexError("Semantic index vector row is invalid");
-    }
-    return Object.freeze({
-      contentDigest: row.contentDigest,
-      projectionDigest: row.projectionDigest,
-      vector: vectorFromBlob(row.vector, dimensions),
-    });
+    const rows = rowsFor(connection, practiceId);
+    if (rows.length === 0) return undefined;
+    return Object.freeze(
+      rows.map((row) => {
+        validateViewIdentity(row);
+        return Object.freeze({
+          viewId: row.viewId,
+          viewKind: viewKind(row.viewKind),
+          viewOrdinal: row.viewOrdinal,
+          contentDigest: row.contentDigest,
+          projectionDigest: row.projectionDigest,
+          vector: vectorFromBlob(row.vector, dimensions),
+        });
+      }),
+    );
   } catch (error) {
     if (error instanceof SemanticIndexError) throw error;
-    throw new SemanticIndexError("Cannot read semantic index vector", { cause: error });
+    throw new SemanticIndexError("Cannot read semantic index vectors", { cause: error });
   }
 }
 
@@ -260,11 +378,9 @@ export function applySemanticIndexChanges(
   target: SemanticIndexMetadata,
   removedPracticeIds: readonly string[],
   documents: readonly SemanticDocument[],
-  vectors: readonly Float32Array[],
+  vectors: readonly (readonly Float32Array[])[],
 ): SemanticIndexMetadata {
-  if (documents.length !== vectors.length) {
-    throw new SemanticIndexError("Semantic index document and vector counts differ");
-  }
+  validateDocumentVectorShape(documents, vectors);
   const removed = [...new Set(removedPracticeIds)].sort();
   let written: SemanticIndexMetadata | undefined;
   try {
@@ -277,7 +393,7 @@ export function applySemanticIndexChanges(
           .run();
       }
       if (rows.length > 0) connection.orm.insert(semanticVectors).values(rows).run();
-      written = finalMetadata(target, vectorCount(connection));
+      written = finalMetadata(target, countPractices(connection));
       updateMetadata(connection, written);
     });
     if (written === undefined)
@@ -294,14 +410,18 @@ export function readSemanticIndexMetadata(
 ): SemanticIndexMetadata {
   try {
     const metadata = metadataFromRow(metadataRow(connection));
-    const vectors = connection.orm
-      .select({ vector: semanticVectors.vector })
-      .from(semanticVectors)
-      .all();
-    if (vectors.length !== metadata.vectorCount) {
-      throw new SemanticIndexError("Semantic index vector count is inconsistent");
+    const rows = rowsFor(connection);
+    for (const row of rows) {
+      validateViewIdentity(row);
+      validateVectorBlob(row.vector, metadata.dimensions);
     }
-    for (const row of vectors) validateVectorBlob(row.vector, metadata.dimensions);
+    const practices = countPractices(connection);
+    if (practices !== metadata.vectorCount) {
+      throw new SemanticIndexError("Semantic index Practice count is inconsistent");
+    }
+    if (rows.length < practices) {
+      throw new SemanticIndexError("Semantic index contains a Practice without a vector view");
+    }
     return metadata;
   } catch (error) {
     if (error instanceof SemanticIndexError) throw error;
@@ -322,6 +442,7 @@ export function verifySemanticIndexIntegrity(connection: SemanticIndexConnection
     ) {
       throw new SemanticIndexError("Semantic SQLite index integrity check failed");
     }
+    countVectors(connection);
   } catch (error) {
     if (error instanceof SemanticIndexError) throw error;
     throw new SemanticIndexError("Cannot verify semantic SQLite index", { cause: error });

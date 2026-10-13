@@ -7,6 +7,7 @@ import { createEmbeddingProfile, type EffectivePractice } from "@lorelum/engine"
 
 import { canonicalizePractice } from "../../../../engine/src/local-store/model/canonical-practice";
 import { createIsolatedProjectSandbox } from "../../../../engine/src/project-context/project-sandbox.test-helper";
+import { projectSemanticPractice } from "../../../../engine/src/query/semantic/projection";
 
 import { EmbeddingError } from "../embedding/errors";
 import { ContentAddressedSemanticRuntime } from "./content-addressed-semantic-runtime";
@@ -241,12 +242,10 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
       {
         maxBatchSize: 1,
         async embed(inputs) {
-          if (inputs[0]?.startsWith("Practice:")) {
-            documentCalls += 1;
-            if (documentCalls === 1) {
-              markFirstDocumentStarted();
-              await firstBatch;
-            }
+          documentCalls += inputs.length;
+          if (documentCalls === inputs.length) {
+            markFirstDocumentStarted();
+            await firstBatch;
           }
           return { encodingId, vectors: inputs.map(() => [1, 0]) };
         },
@@ -276,7 +275,8 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
       ),
     ).resolves.toMatchObject({ state: "indexing" });
     await firstDocumentStarted;
-    expect(documentCalls).toBe(1);
+    // One Practice projects three views: full, task-card, body.
+    expect(documentCalls).toBe(3);
     const original = await Bun.file(firstPath).text();
     await writeFile(
       firstPath,
@@ -292,10 +292,10 @@ test("coalesces rapid edits for one directory to the latest semantic target", as
     ).resolves.toMatchObject({ state: "indexing" });
     releaseFirst();
     await runtime.waitForIdle();
-    // The original target yields after its first batch. Its unchanged first
-    // projection is reusable, so only the missing second Practice of the
-    // latest target is embedded after the edit.
-    expect(documentCalls).toBe(2);
+    // The original target yields after its first batch. The severity edit is
+    // outside the projection, so the first Practice is reusable and only the
+    // three views of the second Practice are embedded after coalescing.
+    expect(documentCalls).toBe(6);
   } finally {
     await Promise.all([
       rm(root, { recursive: true, force: true }),
@@ -339,6 +339,7 @@ ${id}
       releaseSecond = resolve;
     });
     let documentCalls = 0;
+    let documentBatches = 0;
     let markSecondDocumentStarted!: () => void;
     const secondDocumentStarted = new Promise<void>((resolve) => {
       markSecondDocumentStarted = resolve;
@@ -362,8 +363,9 @@ ${id}
       {
         maxBatchSize: 1,
         async embed(inputs) {
-          documentCalls += inputs.filter((input) => input.startsWith("Practice:")).length;
-          if (documentCalls === 2) {
+          documentCalls += inputs.length;
+          documentBatches += 1;
+          if (documentBatches === 2) {
             markSecondDocumentStarted();
             await second;
           }
@@ -551,7 +553,7 @@ test("uses retained Store revision deltas and safely falls back when later histo
       {
         maxBatchSize: 8,
         async embed(inputs) {
-          documentEmbeddings += inputs.filter((input) => input.startsWith("Practice:")).length;
+          documentEmbeddings += inputs.length;
           return { encodingId, vectors: inputs.map(() => [1, 0]) };
         },
       },
@@ -580,7 +582,7 @@ test("uses retained Store revision deltas and safely falls back when later histo
       mode: "semantic",
       coverage: "complete",
     });
-    expect(documentEmbeddings).toBe(2);
+    expect(documentEmbeddings).toBe(6);
 
     revision = 2;
     practices = second;
@@ -589,7 +591,8 @@ test("uses retained Store revision deltas and safely falls back when later histo
     if (!("results" in updated)) throw new Error("Expected a semantic query result");
     expect(updated.results.map((result) => result.practiceId)).toContain("platform.changed");
     expect(deltaReads).toEqual([1]);
-    expect(documentEmbeddings).toBe(3);
+    // applies_when and body both change, so full, task-card, and body are new.
+    expect(documentEmbeddings).toBe(9);
 
     // Revision 3 intentionally has no retained history. The runtime must not
     // return the copied revision-2 row as the current winner; it falls back to
@@ -608,7 +611,9 @@ test("uses retained Store revision deltas and safely falls back when later histo
     // A bounded predecessor lookup may try the immediately preceding revision
     // and one older catalog entry before it gives up on unavailable history.
     expect(deltaReads).toEqual([1, 2, 1]);
-    expect(documentEmbeddings).toBe(4);
+    // The full, task-card, and body views of the changed Practice are missing;
+    // the unchanged Practice still hits the vector cache.
+    expect(documentEmbeddings).toBe(12);
   } finally {
     await rm(cache, { recursive: true, force: true });
   }
@@ -636,6 +641,20 @@ test("joins one content-addressed operation for equivalent ordinary directories"
       }),
     );
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    // Multi-view projection embeds one vector per content view; both equivalent
+    // directories must share that single build instead of embedding twice.
+    const sharedViewCount = projectSemanticPractice({
+      practiceId: "platform.shared",
+      ...canonicalizePractice({
+        id: "platform.shared",
+        title: "Shared",
+        stage: "implementation",
+        tech_stack: ["typescript"],
+        applies_when: "When validating shared content addressing.",
+        body: "Same Practice body.",
+      }),
+      sources: Object.freeze([]),
+    }).views.length;
     let release!: () => void;
     const block = new Promise<void>((resolve) => {
       release = resolve;
@@ -698,15 +717,16 @@ test("joins one content-addressed operation for equivalent ordinary directories"
       { text: "shared" },
       policy,
     );
-    expect(firstResult).toMatchObject({ state: "indexing" });
-    expect(secondResult).toMatchObject({ state: "indexing" });
     if (!("operationId" in firstResult) || !("operationId" in secondResult)) {
+      release();
       throw new Error("Expected accepted operations");
     }
-    expect(secondResult.operationId).toBe(firstResult.operationId);
-    expect(documentCalls).toBe(1);
     release();
     await runtime.waitForIdle();
+    expect(firstResult).toMatchObject({ state: "indexing" });
+    expect(secondResult).toMatchObject({ state: "indexing" });
+    expect(secondResult.operationId).toBe(firstResult.operationId);
+    expect(documentCalls).toBe(sharedViewCount);
   } finally {
     await Promise.all([
       rm(first, { recursive: true, force: true }),

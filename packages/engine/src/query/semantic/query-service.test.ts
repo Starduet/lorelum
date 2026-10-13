@@ -12,7 +12,6 @@ import {
 } from "../../local-store";
 import { canonicalizePractice, type RevisionDelta } from "../../local-store/model";
 import type { EmbeddingPort } from "./encoding";
-import { KeywordIndexUnavailableError } from "../errors";
 import { SemanticIndexNotReadyError, SemanticIndexQueryError } from "./errors";
 import { createSemanticIndexService } from "./index/service";
 import { createEmbeddingProfile } from "./profile";
@@ -63,28 +62,39 @@ function detailedPractice(input: {
 }
 
 const domainPractice = detailedPractice({
-  id: "sample.throughput",
-  title: "Measure throughput",
-  stage: "performance",
-  techStack: ["database"],
-  appliesWhen: "Measure throughput during sustained traffic.",
-  body: "Inspect latency and capacity.",
+  id: "react.server.request-dedup-cache",
+  title: "Deduplicate Request-Scoped Work",
+  stage: "server",
+  techStack: ["react"],
+  appliesWhen:
+    "one server render calls the same request-scoped async work, such as session or record lookup, from more than one component or helper",
+  body: "Share one cached result for the request instead of repeating the lookup.",
 });
-const postPractice = detailedPractice({
-  id: "sample.rollback",
-  title: "Audit rollback",
-  stage: "review",
-  techStack: ["database"],
-  appliesWhen: "Audit rollback before approving deployment.",
-  body: "Inspect recovery procedures.",
-});
-const taskRequest = "Audit rollback";
 
-/** The domain Practice is the closer vector; only final ordering can promote the task match. */
+const postPractice = detailedPractice({
+  id: "issue-pr-etiquette.pull-request.write-the-pr-body-for-a-cold-reviewer",
+  title: "Write the PR Body for a Cold Reviewer",
+  stage: "pull-request",
+  techStack: ["git"],
+  appliesWhen:
+    "a PR is about to be opened, and the author must write a body from which a reviewer with none of the author's context can verify the change",
+  body: "State the problem, the decision and the evidence in the post itself.",
+});
+
+const taskRequest =
+  "I am opening a PR that fixes a React cache bug; a reviewer will see it without our chat history, so make the context self-contained.";
+
 function nearTieVectors(text: string): readonly number[] {
-  if (text.includes(domainPractice.practiceId)) return [0.9, Math.sqrt(1 - 0.9 ** 2)];
-  if (text.includes(postPractice.practiceId)) return [0.88, Math.sqrt(1 - 0.88 ** 2)];
-  return [1, 0];
+  if (text.startsWith("I am opening a PR")) return [1, 0, 0];
+  if (text.startsWith("a reviewer") || text.startsWith("so make the context")) return [0, 1, 0];
+  if (text.startsWith("Deduplicate Request-Scoped Work")) return [0.82, 0.5, 0.2786];
+  if (text.startsWith("Write the PR Body for a Cold Reviewer")) return [0.52, 0.82, 0.2392];
+  // Query mentions React, so the domain Practice matches the technology world.
+  if (text === "react") return [1, 0, 0];
+  if (text === "git") return [0, 1, 0];
+  if (text.startsWith("Share one cached result")) return [0.82, 0.5, 0.2786];
+  if (text.startsWith("State the problem")) return [0.52, 0.82, 0.2392];
+  return [0, 1, 0];
 }
 
 function nearTiePort(): EmbeddingPort {
@@ -250,7 +260,7 @@ test("returns complete semantic results with deterministic score and ID ordering
       "platform.alpha2",
       "platform.beta",
     ]);
-    expect(embedding.calls).toHaveLength(2);
+    expect(embedding.calls).toHaveLength(3);
   });
 });
 
@@ -505,11 +515,11 @@ test("Store changes during candidate read are retried three times", async () => 
   });
 });
 
-test("orders final results by task relevance over the closer domain match", async () => {
+test("decides on applicability and lets guidance and topic settle a near tie", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
     await build(rootPath, store, profile, embedding);
 
     const taskAware = await semantic(store, profile, embedding).query(
@@ -520,77 +530,80 @@ test("orders final results by task relevance over the closer domain match", asyn
       postPractice.practiceId,
       domainPractice.practiceId,
     ]);
-
-    const semanticOnly = await createSemanticCandidateTraceService({
-      store,
-      profile,
-      embedding,
-      taskSignal: { measure: () => new Map<string, number>() },
-    }).query({ rootPath }, { text: taskRequest, candidateWidth: 2, resultLimit: 2 });
-    expect(semanticOnly.finalIds).toEqual([domainPractice.practiceId, postPractice.practiceId]);
   });
 });
 
-test("candidate trace keeps reader order while final results use task ordering", async () => {
+test("candidate and final lists keep one multi-view order inside the requested width", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
     await build(rootPath, store, profile, embedding);
 
     const trace = await semanticTrace(store, profile, embedding).query(
       { rootPath },
       { text: taskRequest, candidateWidth: 2, resultLimit: 1 },
     );
-    expect(trace.candidateIds).toEqual([domainPractice.practiceId, postPractice.practiceId]);
+    expect(trace.candidateIds).toEqual([postPractice.practiceId, domainPractice.practiceId]);
     expect(trace.finalIds).toEqual([postPractice.practiceId]);
   });
 });
 
-test("trace fails instead of returning another order when task scoring is unavailable", async () => {
+test("does not linearly reward a Practice for having more body views", async () => {
   await withRoot(async (rootPath) => {
-    const store = createStore(rootPath, [domainPractice, postPractice]);
-    const embedding = nearTiePort();
+    const oneChunk = practice("platform.a-one-chunk", "One focused paragraph.");
+    const manyChunks = practice(
+      "platform.z-many-chunks",
+      "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
+    );
+    const store = createStore(rootPath, [manyChunks, oneChunk]);
+    const embedding: EmbeddingPort = {
+      maxBatchSize: 8,
+      async embed(inputs) {
+        return {
+          encodingId,
+          vectors: inputs.map((text) => {
+            if (text === "conceptual request") return [1, 0];
+            if (text.startsWith("platform.a-one-chunk")) return [0.5, Math.sqrt(1 - 0.5 ** 2)];
+            if (text.startsWith("platform.z-many-chunks")) return [0.45, Math.sqrt(1 - 0.45 ** 2)];
+            // Identical topic view for both Practices keeps the penalty equal.
+            if (text === "typescript") return [0, 1];
+            // Every guidance chunk scores the same, so only the number of
+            // chunks differs between the two Practices.
+            return [0.9, Math.sqrt(1 - 0.9 ** 2)];
+          }),
+        };
+      },
+    };
     const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
     await build(rootPath, store, profile, embedding);
-    const service = createSemanticCandidateTraceService({
-      store,
-      profile,
-      embedding,
-      taskSignal: {
-        measure() {
-          throw new KeywordIndexUnavailableError();
-        },
-      },
-    });
-    await expect(
-      service.query({ rootPath }, { text: taskRequest, candidateWidth: 2, resultLimit: 2 }),
-    ).rejects.toBeInstanceOf(SemanticIndexQueryError);
+
+    const result = await semantic(store, profile, embedding).query(
+      { rootPath },
+      { text: "conceptual request", limit: 2 },
+    );
+
+    expect(result.results.map((hit) => hit.practiceId)).toEqual([
+      oneChunk.practiceId,
+      manyChunks.practiceId,
+    ]);
   });
 });
 
-test("digest mismatch is rejected before the task signal sees candidates", async () => {
+// The query names "React cache", which is the wrong Practice's technology
+// world; a lexical scorer would rank it first. Cosine on role views must not.
+test("ranks by cosine even when the query shares more words with the wrong Practice", async () => {
   await withRoot(async (rootPath) => {
     const store = createStore(rootPath, [domainPractice, postPractice]);
     const embedding = nearTiePort();
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
     await build(rootPath, store, profile, embedding);
-    store.practices = [domainPractice, { ...postPractice, contentDigest: "f".repeat(64) }];
-    let measured = false;
-    const service = createSemanticCandidateTraceService({
-      store,
-      profile,
-      embedding,
-      taskSignal: {
-        measure() {
-          measured = true;
-          return new Map<string, number>();
-        },
-      },
-    });
-    await expect(
-      service.query({ rootPath }, { text: taskRequest, candidateWidth: 2, resultLimit: 1 }),
-    ).rejects.toBeInstanceOf(SemanticIndexQueryError);
-    expect(measured).toBe(false);
+
+    const service = createSemanticQueryService({ store, profile, embedding });
+    const result = await service.query({ rootPath }, { text: taskRequest, limit: 2 });
+    expect(result.results.map((hit) => hit.practiceId)).toEqual([
+      postPractice.practiceId,
+      domainPractice.practiceId,
+    ]);
   });
 });

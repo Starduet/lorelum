@@ -66,7 +66,7 @@ Keep source data outside the cache.
       artifactCount: 2,
       keywordArtifactCount: 1,
       semanticArtifactCount: 1,
-      vectorCount: 1,
+      vectorCount: 3,
     });
     await expect(pruneContentArtifactCache(cache)).resolves.toMatchObject({
       removedArtifactCount: 2,
@@ -212,8 +212,8 @@ test("catalog, vectors, and semantic artifacts retain no ProjectContext source p
     await writeSharedEmbeddingVectors(
       cache,
       profile,
-      [projectSemanticPractice(document)],
-      [new Float32Array([1, 0])],
+      projectSemanticPractice(document).views,
+      projectSemanticPractice(document).views.map(() => new Float32Array([1, 0])),
     );
 
     const protectedFiles = [

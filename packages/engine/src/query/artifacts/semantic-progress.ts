@@ -14,14 +14,19 @@ import {
   applySemanticIndexChanges,
   initializeSemanticIndex,
   readSemanticIndexMetadata,
-  readSemanticIndexVector,
+  readSemanticIndexVectors,
   type SemanticIndexConnection,
   verifySemanticIndexIntegrity,
 } from "../semantic/index/database";
 import { isCompatibleMetadata, metadataFor, stateForMetadata } from "../semantic/index/metadata";
 import { openSemanticIndexReaderAt } from "../semantic/index/reader";
-import { projectSemanticPractice, type SemanticDocument } from "../semantic/projection";
+import {
+  projectSemanticPractice,
+  type SemanticDocument,
+  type SemanticProjectionView,
+} from "../semantic/projection";
 import type { EmbeddingProfile } from "../semantic/profile";
+import { parseQueryRequest } from "../request";
 import type { QueryRequest } from "../types";
 import type { SemanticQueryResult } from "../semantic/query-service";
 import { assembleSemanticArtifactResult, searchSemanticArtifact } from "../semantic/read";
@@ -173,9 +178,9 @@ async function ensureProgress(
 async function embedBatch(
   embedding: EmbeddingPort,
   profile: EmbeddingProfile,
-  batch: readonly SemanticDocument[],
+  batch: readonly SemanticProjectionView[],
 ): Promise<readonly Float32Array[]> {
-  const inputs = batch.map((document) => document.text);
+  const inputs = batch.map((view) => view.text);
   return validateEmbeddingBatch(profile, inputs, await embedding.embed(inputs));
 }
 
@@ -183,22 +188,21 @@ async function vectorsForBatch(
   cacheRoot: string,
   embedding: EmbeddingPort,
   profile: EmbeddingProfile,
-  batch: readonly SemanticDocument[],
+  batch: readonly SemanticProjectionView[],
 ): Promise<readonly Float32Array[]> {
   const cached = await readSharedEmbeddingVectors(cacheRoot, profile, batch);
-  const missing = batch.filter((document) => !cached.has(document.projectionDigest));
+  const missing = batch.filter((view) => !cached.has(view.projectionDigest));
   const embedded = missing.length === 0 ? [] : await embedBatch(embedding, profile, missing);
   if (missing.length > 0) {
     await writeSharedEmbeddingVectors(cacheRoot, profile, missing, embedded);
   }
   const embeddedByProjection = new Map(
-    missing.map((document, index) => [document.projectionDigest, embedded[index]!] as const),
+    missing.map((view, index) => [view.projectionDigest, embedded[index]!] as const),
   );
   return Object.freeze(
-    batch.map((document) => {
+    batch.map((view) => {
       const vector =
-        cached.get(document.projectionDigest) ??
-        embeddedByProjection.get(document.projectionDigest);
+        cached.get(view.projectionDigest) ?? embeddedByProjection.get(view.projectionDigest);
       if (vector === undefined)
         throw new SemanticIndexError("Content-addressed semantic batch vector is missing");
       return vector;
@@ -232,16 +236,22 @@ async function seedProgressFromArtifact(
       if (!isCompatibleMetadata(sourceMetadata, input.profile, sourceMetadata.rootBinding))
         return 0;
       const reusableDocuments: SemanticDocument[] = [];
-      const reusableVectors: Float32Array[] = [];
+      const reusableVectors: (readonly Float32Array[])[] = [];
       for (const document of documents(input.snapshot)) {
-        const prior = readSemanticIndexVector(
-          source,
-          document.practiceId,
-          input.profile.dimensions,
+        const priorByView = new Map(
+          (
+            readSemanticIndexVectors(source, document.practiceId, input.profile.dimensions) ?? []
+          ).map((view) => [view.viewId, view] as const),
         );
-        if (prior?.projectionDigest !== document.projectionDigest) continue;
+        const vectors: Float32Array[] = [];
+        for (const view of document.views) {
+          const prior = priorByView.get(view.viewId);
+          if (prior?.projectionDigest !== view.projectionDigest) break;
+          vectors.push(prior.vector);
+        }
+        if (vectors.length !== document.views.length) continue;
         reusableDocuments.push(document);
-        reusableVectors.push(prior.vector);
+        reusableVectors.push(Object.freeze(vectors));
       }
       if (reusableDocuments.length === 0) return 0;
       return applySemanticIndexChanges(
@@ -503,12 +513,27 @@ export class ContentAddressedSemanticProgressService {
           ) {
             if (this.shouldContinue !== undefined && !this.shouldContinue()) return this.status();
             const batch = missing.slice(start, start + this.documentEmbedding.maxBatchSize);
+            const views = batch.flatMap((document) => document.views);
             // eslint-disable-next-line no-await-in-loop -- each completed batch must be queryable before the next one starts.
-            const vectors = await vectorsForBatch(
+            const flatVectors = await vectorsForBatch(
               this.cacheRoot,
               this.documentEmbedding,
               this.profile,
-              batch,
+              views,
+            );
+            let vectorIndex = 0;
+            const vectors = Object.freeze(
+              batch.map((document) =>
+                Object.freeze(
+                  document.views.map(() => {
+                    const vector = flatVectors[vectorIndex];
+                    vectorIndex += 1;
+                    if (vector === undefined)
+                      throw new SemanticIndexError("Project semantic view vector is missing");
+                    return vector;
+                  }),
+                ),
+              ),
             );
             applySemanticIndexChanges(
               openConnection(),
@@ -581,6 +606,7 @@ export class ContentAddressedSemanticProgressService {
   ): Promise<ContentAddressedSemanticPartialResult | undefined> {
     const status = await this.status();
     if (status.state !== "indexing" || status.indexedPracticeCount === 0) return undefined;
+    const parsed = parseQueryRequest(request);
     return withContentArtifactLease(this.paths.directory, async () => {
       const reader = await openSemanticIndexReaderAt(
         progressPaths(this.cacheRoot, this.snapshot, this.profile),
@@ -592,7 +618,8 @@ export class ContentAddressedSemanticProgressService {
           reader,
           profile: this.profile,
           embedding: this.queryEmbedding,
-          request,
+          text: parsed.text,
+          candidateLimit: Number.MAX_SAFE_INTEGER,
           excludedPracticeIds: new Set(),
         });
         return Object.freeze({
@@ -600,7 +627,7 @@ export class ContentAddressedSemanticProgressService {
             profile: this.profile,
             coverage: "partial",
             practices: this.snapshot.practices,
-            candidates,
+            candidates: candidates.slice(0, parsed.limit),
           }),
           indexedPracticeCount: status.indexedPracticeCount,
           totalPracticeCount: status.totalPracticeCount,

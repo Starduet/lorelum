@@ -61,22 +61,24 @@ async function writeProjectCorpus(root: string, count: number): Promise<void> {
 
 const TASK_FIXTURE_PRACTICES = [
   {
-    file: "throughput.md",
-    id: "platform.throughput",
-    title: "Measure throughput",
-    stage: "performance",
-    techStack: ["database"],
-    appliesWhen: "Measure throughput during sustained traffic.",
-    body: "Inspect latency and capacity.",
+    file: "react-server-cache.md",
+    id: "platform.react-server-cache",
+    title: "Deduplicate Request-Scoped Work",
+    stage: "server",
+    techStack: ["react"],
+    appliesWhen:
+      "one server render calls the same request-scoped async work, such as session or record lookup, from more than one component or helper",
+    body: "Share one cached result for the request instead of repeating the lookup.",
   },
   {
-    file: "rollback.md",
-    id: "platform.rollback",
-    title: "Audit rollback",
-    stage: "review",
-    techStack: ["database"],
-    appliesWhen: "Audit rollback before approving deployment.",
-    body: "Inspect recovery procedures.",
+    file: "write-pr-body-for-a-cold-reviewer.md",
+    id: "platform.write-pr-body-for-a-cold-reviewer",
+    title: "Write the PR Body for a Cold Reviewer",
+    stage: "pull-request",
+    techStack: ["git"],
+    appliesWhen:
+      "a PR is about to be opened, and the author must write a body from which a reviewer with none of the author's context can verify the change",
+    body: "State the problem, the decision and the evidence in the post itself.",
   },
 ] as const;
 
@@ -105,13 +107,16 @@ async function writeTaskFixtureProject(root: string): Promise<void> {
   }
 }
 
-/** The throughput Practice is the closer vector; final ordering must promote the task match. */
 function taskFixtureVector(text: string): readonly number[] {
-  if (text.includes("platform.throughput")) return [0.9, Math.sqrt(1 - 0.9 ** 2)];
-  if (text.includes("platform.rollback")) {
-    return [0.88, Math.sqrt(1 - 0.88 ** 2)];
-  }
-  return [1, 0];
+  if (text.startsWith("I am opening a PR")) return [1, 0, 0];
+  if (text.startsWith("a reviewer")) return [0, 1, 0];
+  if (text.startsWith("Deduplicate Request-Scoped Work")) return [0.82, 0.5, 0.2786];
+  if (text.startsWith("Write the PR Body for a Cold Reviewer")) return [0.52, 0.82, 0.2392];
+  if (text === "react") return [1, 0, 0];
+  if (text === "git") return [0, 1, 0];
+  if (text.startsWith("Share one cached result")) return [0.82, 0.5, 0.2786];
+  if (text.startsWith("State the problem")) return [0.52, 0.82, 0.2392];
+  return [0, 1, 0];
 }
 
 async function snapshot(root: string) {
@@ -189,11 +194,11 @@ test("uses the shared N/K candidate boundary for ProjectContext queries", () =>
     expect(trace.finalIds).toEqual(trace.candidateIds.slice(0, 5));
   }));
 
-test("uses the shared task-aware final ordering for ProjectContext queries", () =>
+test("uses the shared multi-view final ordering for ProjectContext queries", () =>
   fixture(async (root, cache) => {
     await writeTaskFixtureProject(root);
     const current = await snapshot(root);
-    const profile = createEmbeddingProfile({ encodingId, dimensions: 2 });
+    const profile = createEmbeddingProfile({ encodingId, dimensions: 3 });
     const embedding = {
       maxBatchSize: 8,
       async embed(inputs: readonly string[]) {
@@ -210,13 +215,16 @@ test("uses the shared task-aware final ordering for ProjectContext queries", () 
     );
 
     const trace = await traceService.query(services.root, {
-      text: "Audit rollback",
+      text: "I am opening a PR that fixes a React cache bug; a reviewer will see it without our chat history",
       candidateWidth: 20,
       resultLimit: 5,
     });
 
-    expect(trace.finalIds[0]).toBe("platform.rollback");
-    expect(trace.candidateIds).toEqual(["platform.throughput", "platform.rollback"]);
+    expect(trace.finalIds[0]).toBe("platform.write-pr-body-for-a-cold-reviewer");
+    expect(trace.candidateIds).toEqual([
+      "platform.write-pr-body-for-a-cold-reviewer",
+      "platform.react-server-cache",
+    ]);
   }));
 
 test("uses one semantic artifact identity for equivalent directory snapshots", async () => {

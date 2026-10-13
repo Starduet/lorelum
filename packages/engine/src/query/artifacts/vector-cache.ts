@@ -7,7 +7,7 @@ import { migrateSqlite } from "../../persistence/database/migrator";
 import { semanticVectorCacheDatabaseDefinition } from "../../persistence/definitions";
 import { embeddingVectors } from "../../persistence/schemas/semantic-vector-cache";
 import type { EmbeddingProfile } from "../semantic/profile";
-import type { SemanticDocument } from "../semantic/projection";
+import type { SemanticProjectionView } from "../semantic/projection";
 import { contentArtifactVectorCachePaths } from "./cache";
 
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -33,8 +33,8 @@ function validVector(value: unknown, dimensions: number): Float32Array | undefin
   return Math.abs(Math.sqrt(squaredLength) - 1) < 0.001 ? vector : undefined;
 }
 
-function validDocument(document: SemanticDocument): boolean {
-  return DIGEST.test(document.projectionDigest);
+function validView(view: SemanticProjectionView): boolean {
+  return DIGEST.test(view.projectionDigest);
 }
 
 async function databaseExists(path: string): Promise<boolean> {
@@ -64,13 +64,11 @@ async function withWriter<T>(cacheRoot: string, work: () => Promise<T>): Promise
 export async function readSharedEmbeddingVectors(
   cacheRoot: string,
   profile: EmbeddingProfile,
-  documents: readonly SemanticDocument[],
+  views: readonly SemanticProjectionView[],
 ): Promise<ReadonlyMap<string, Float32Array>> {
   const paths = contentArtifactVectorCachePaths(cacheRoot);
-  if (!(await databaseExists(paths.database)) || documents.length === 0) return new Map();
-  const digests = [
-    ...new Set(documents.filter(validDocument).map((item) => item.projectionDigest)),
-  ];
+  if (!(await databaseExists(paths.database)) || views.length === 0) return new Map();
+  const digests = [...new Set(views.filter(validView).map((item) => item.projectionDigest))];
   if (digests.length === 0) return new Map();
   try {
     return await withWriter(cacheRoot, async () => {
@@ -138,10 +136,10 @@ export async function readSharedEmbeddingVectors(
 export async function writeSharedEmbeddingVectors(
   cacheRoot: string,
   profile: EmbeddingProfile,
-  documents: readonly SemanticDocument[],
+  views: readonly SemanticProjectionView[],
   vectors: readonly Float32Array[],
 ): Promise<void> {
-  if (documents.length !== vectors.length || documents.length === 0) return;
+  if (views.length !== vectors.length || views.length === 0) return;
   const paths = contentArtifactVectorCachePaths(cacheRoot);
   try {
     await withWriter(cacheRoot, async () => {
@@ -154,15 +152,15 @@ export async function writeSharedEmbeddingVectors(
         migrateSqlite(connection, semanticVectorCacheDatabaseDefinition);
         const timestamp = new Date().toISOString();
         connection.orm.transaction(() => {
-          for (const [index, document] of documents.entries()) {
-            if (!validDocument(document)) continue;
+          for (const [index, view] of views.entries()) {
+            if (!validView(view)) continue;
             const vector = validVector(vectorBlob(vectors[index]!), profile.dimensions);
             if (vector === undefined) continue;
             connection.orm
               .insert(embeddingVectors)
               .values({
                 profileId: profile.profileId,
-                projectionDigest: document.projectionDigest,
+                projectionDigest: view.projectionDigest,
                 encodingId: profile.encodingId,
                 dimensions: profile.dimensions,
                 normalization: "l2",

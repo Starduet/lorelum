@@ -13,18 +13,18 @@ const ompCatalog =
 const ompReadHints =
   "Read-Practice hints in an omp child come from successful gets by the originating Main session, including in nested task/eval children. They are possibly relevant metadata, not the full guidance or proof of adoption. Read a candidate in full before using it; your own reads belong to your session and are not automatically added to Main's candidates. Enabling `agent.subagentPackCatalog: true` adds only Pack routing metadata, never complete Pack or Practice bodies.";
 
-const lifecycleDescription =
-  "Find and apply Practices for design, code, tests and acceptance; never reset plans. Inspect existing phases, tasks, and statuses before updating them.";
+const planningDescription =
+  "When planning, note what to look up in Lorelum at the step that needs it; then read and apply the relevant Practice.";
 
 const injectedCatalogDescription =
-  `${lifecycleDescription} Use the injected Pack Catalog to discover relevant guidance.`;
+  `${planningDescription} Use the injected Pack Catalog to discover relevant guidance.`;
 
 const commandDescription =
   `${injectedCatalogDescription} The /lore command is also available.`;
 
 export const guidanceProfiles = {
   generic: {
-    description: lifecycleDescription,
+    description: planningDescription,
     catalog: sharedCatalog,
     readHints: "",
   },
@@ -44,7 +44,7 @@ export const guidanceProfiles = {
     readHints: "",
   },
   omp: {
-    description: lifecycleDescription,
+    description: planningDescription,
     catalog: ompCatalog,
     readHints: ompReadHints,
   },

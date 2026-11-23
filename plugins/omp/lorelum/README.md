@@ -6,6 +6,8 @@ Source and maintenance notes for the omp Plugin. Installation and usage are docu
 
 `extensions/practice-todo.ts` records explicit `[practice: question]` markers in omp session entries and restores them from the active branch. Successful todo updates append pending reminders to the tool result. `close_lore_lookup` closes one reminder by ID without modifying the todo list.
 
+Registration uses the operation and tasks in the successful host result. An `init` that carries forward a closed question leaves it closed. Explicitly appending that question can create a fresh reminder when no matching reminder is pending.
+
 ## Request behavior
 
 - Session start/reload, switch, branch, tree navigation, and completed compact invalidate the snapshot. The next `context` callback reads once; subsequent requests reuse it. Concurrent callbacks share that read.

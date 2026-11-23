@@ -7,6 +7,11 @@ interface Reminder {
   closed: boolean;
 }
 
+interface TodoDetails {
+  op: string;
+  phases: { tasks: { content: string }[] }[];
+}
+
 export default function practiceTodo(api: ExtensionAPI): void {
   let reminders: ReadonlyMap<string, Reminder> = new Map();
 
@@ -52,19 +57,26 @@ export default function practiceTodo(api: ExtensionAPI): void {
 
   api.on("tool_result", (event) => {
     if (event.toolName !== "todo" || event.isError) return;
-    const { op, items, list } = event.input;
+    const details = event.details as TodoDetails | undefined;
+    if (!details) return;
+    const { op, phases } = details;
     if (op === "init" || op === "append") {
-      const tasks: string[] = list?.flatMap((phase: { items: string[] }) => phase.items) ?? items ?? [];
+      // The append result contains the whole plan. Only submitted append items
+      // identify the new tasks, whose contents are unique in the committed plan.
+      const appended = op === "append" ? new Set<string>(event.input.items) : undefined;
       let next: Map<string, Reminder> | undefined;
-      for (const task of tasks) {
-        markers: for (const [, value] of task.matchAll(/\[practice:\s*([^\]\r\n]+)\]/gi)) {
-          const question = value.trim();
-          if (!question) continue;
-          for (const item of (next ?? reminders).values()) {
-            if (item.question === question) continue markers;
+      for (const { tasks } of phases) {
+        for (const { content } of tasks) {
+          if (appended && !appended.has(content)) continue;
+          markers: for (const [, value] of content.matchAll(/\[practice:\s*([^\]\r\n]+)\]/gi)) {
+            const question = value.trim();
+            if (!question) continue;
+            for (const item of (next ?? reminders).values()) {
+              if (item.question === question && (op === "init" || !item.closed)) continue markers;
+            }
+            next ??= new Map(reminders);
+            next.set(`P${next.size + 1}`, { question, closed: false });
           }
-          next ??= new Map(reminders);
-          next.set(`P${next.size + 1}`, { question, closed: false });
         }
       }
       if (next) save(next);

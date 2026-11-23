@@ -24,6 +24,8 @@ All official Plugins use the same Lorelum Skill, `lore query`, and `lore get`. C
 
 When the agent is already planning, Lorelum suggests noting what to look up at the step that needs it, then reading and applying the relevant Practice. It does not ask the agent to create or reset a plan for Lorelum. This is guidance, not a host-enforced guarantee.
 
+In omp, the Lorelum Plugin keeps questions marked `[practice: specific question]` in the current session. If the agent replaces its todo list, pending questions still appear in the tool result. Ask the agent to cancel a reminder if it no longer applies. The agent closes a reminder by its displayed ID after using the guidance.
+
 **Legend:** ✓ fully implemented · △ partial or opt-in support · ✗ not available · - unknown. Host links explain the limits and setup. These symbols describe functionality, not whether a particular host was included in an acceptance run.
 
 <div className="[&_table]:min-w-3xl [&_th:first-child]:w-64 [&_td:first-child]:min-w-64">

@@ -1,6 +1,6 @@
 ---
 name: lorelum
-description: When planning, note what to look up in Lorelum at the step that needs it; then read and apply the relevant Practice.
+description: Find Practices before decisions that need guidance. When creating a todo plan, record future lookups as [practice: specific question] in the relevant step.
 ---
 <!-- Generated from scripts/skill-guidance/content/skill.md.tmpl and profiles.ts. Run bun run skills:generate to regenerate. -->
 

@@ -2,7 +2,9 @@
 
 Source and maintenance notes for the omp Plugin. Installation and usage are documented in the [user guide](https://lorelum.com/en/docs/omp).
 
-`.omp-plugin/marketplace.json` points to this package; keep its entry version and the package version in sync. `omp.extensions` loads `extensions/catalog.ts`, and `skills/lorelum/` packages the portable Skill and its references. Host imports are type-only; the Plugin has no runtime dependencies.
+`.omp-plugin/marketplace.json` points to this package; keep its entry version and the package version in sync. `omp.extensions` loads the Catalog and Practice reminder extensions. `skills/lorelum/` contains the generated omp Skill and its references. Host imports are type-only; the Plugin has no runtime dependencies.
+
+`extensions/practice-todo.ts` records explicit `[practice: question]` markers in omp session entries and restores them from the active branch. Successful todo updates append pending reminders to the tool result. `close_lore_lookup` closes one reminder by ID without modifying the todo list.
 
 ## Request behavior
 

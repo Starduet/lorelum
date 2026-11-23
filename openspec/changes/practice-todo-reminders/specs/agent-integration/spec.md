@@ -6,7 +6,7 @@
 
 Lorelum Skill SHALL 指引 Agent 在本就制定计划时，将相关后续步骤所需的具体 Practice 查询问题记在对应步骤。到该步骤时，Skill SHALL 指引 Agent 按需查询、使用 `lore get` 完整读取将采用的 Practice，并在用户授权范围内应用。Skill MUST NOT 指引 Agent 仅为 Lorelum 创建或重置计划，且 SHALL 提醒 Agent 保留既有任务和状态。
 
-此要求约束 Skill 提供的指引，不保证 Agent 执行；宿主集成 MUST NOT 为此自动查询、自动读取或新增 todo 内容注入。
+此要求约束 Skill 提供的指引。宿主集成 MUST NOT 为此自动查询或自动读取。
 
 #### Scenario: 制定有后续检索需求的计划
 - **WHEN** Agent 正在制定计划，且某个后续步骤需要发现适用指导
@@ -15,6 +15,18 @@ Lorelum Skill SHALL 指引 Agent 在本就制定计划时，将相关后续步�
 #### Scenario: 已有计划或没有计划
 - **WHEN** 当前任务已有计划，或本身不需要计划
 - **THEN** Skill SHALL 提示保留既有任务及状态，且 MUST NOT 要求为 Lorelum 补建或重置计划
+
+### Requirement: omp 会话保留待查 Practice 问题
+
+omp 插件 SHALL 从成功的 `todo init` 和 `append` 登记显式标记 `[practice: 问题]`，为问题分配会话内编号，并在成功的 `init`、`append`、`start` 和 `done` 的工具结果中附加当前未关闭提醒。插件 MUST NOT 重写 todo 列表。插件 SHALL 允许通过 `close_lore_lookup` 关闭单个编号，并随当前会话分支恢复登记与关闭状态。
+
+#### Scenario: 重建时遗漏原问题
+- **WHEN** 成功的 `todo init` 替换了包含待查问题的计划，新计划未包含原标记
+- **THEN** 该未关闭问题 SHALL 仍随结果进入下一次模型请求
+
+#### Scenario: 关闭后切换会话
+- **WHEN** Agent 关闭一个提醒，切换到另一会话，再切回
+- **THEN** 另一会话 MUST NOT 收到原会话的提醒，原会话的后续更新 SHALL 只附加其仍未关闭的提醒
 
 ## MODIFIED Requirements
 

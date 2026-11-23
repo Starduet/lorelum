@@ -44,7 +44,7 @@ export const guidanceProfiles = {
     readHints: "",
   },
   omp: {
-    description: planningDescription,
+    description: "Find Practices before decisions that need guidance. When creating a todo plan, record future lookups as [practice: specific question] in the relevant step.",
     catalog: ompCatalog,
     readHints: ompReadHints,
   },

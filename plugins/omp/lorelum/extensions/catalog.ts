@@ -4,6 +4,7 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@oh-my-pi/pi-coding-agent";
+import registerPracticeTodo from "./practice-todo";
 import { createSessionHandoff } from "./session-handoff";
 import {
   createBridgeExecutor,
@@ -345,4 +346,5 @@ export function registerLorelum(
 
 export default function lorelum(api: ExtensionAPI): void {
   registerLorelum(api);
+  registerPracticeTodo(api);
 }

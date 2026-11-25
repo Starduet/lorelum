@@ -24,7 +24,7 @@ All official Plugins use the same Lorelum Skill, `lore query`, and `lore get`. C
 
 When the agent is already planning, Lorelum suggests noting what to look up at the step that needs it, then reading and applying the relevant Practice. It does not ask the agent to create or reset a plan for Lorelum. This is guidance, not a host-enforced guarantee.
 
-In omp, the Lorelum Plugin keeps questions marked `[practice: specific question]` in the current session. If the agent replaces its todo list, pending questions still appear in the tool result. Ask the agent to cancel a reminder if it no longer applies. The agent closes a reminder by its displayed ID after using the guidance.
+In omp, mark a todo lookup with `[query: specific question]` or `[get: exact.practice.id]`. Pending reminders survive a todo rebuild. Run `lore query "specific question" --todo P1` or `lore get exact.practice.id --todo P2` as a standalone Bash command using the displayed ID. A query with candidates or a successful full read settles that reminder in the same call. Failures, preparation, and an empty query leave it pending. Ask the agent to cancel a reminder when it no longer applies.
 
 **Legend:** ✓ fully implemented · △ partial or opt-in support · ✗ not available · - unknown. Host links explain the limits and setup. These symbols describe functionality, not whether a particular host was included in an acceptance run.
 

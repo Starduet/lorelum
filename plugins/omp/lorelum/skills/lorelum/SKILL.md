@@ -1,6 +1,6 @@
 ---
 name: lorelum
-description: Find Practices before decisions that need guidance. When creating a todo plan, record future lookups as [practice: specific question] in the relevant step.
+description: Find Practices before decisions. Read this Skill when recording lookup reminders in an omp todo.
 ---
 <!-- Generated from scripts/skill-guidance/content/skill.md.tmpl and profiles.ts. Run bun run skills:generate to regenerate. -->
 
@@ -21,6 +21,8 @@ Read default text directly, use `--verbose` for all result fields as text, and u
 Use `lore query` as needed and read the full Practice with `lore get <practice-id>` before applying it within the user's authorization; preserve existing tasks and statuses, and do not create or reset a plan just for Lorelum.
 
 Read-Practice hints in an omp child come from successful gets by the originating Main session, including in nested task/eval children. They are possibly relevant metadata, not the full guidance or proof of adoption. Read a candidate in full before using it; your own reads belong to your session and are not automatically added to Main's candidates. Enabling `agent.subagentPackCatalog: true` adds only Pack routing metadata, never complete Pack or Practice bodies.
+
+In omp, mark future lookups on the relevant todo step as `[query: specific question]` or `[get: exact.practice.id]`. Use the displayed reminder ID in a single Bash command, for example `lore query "specific question" --todo P1` or `lore get exact.practice.id --todo P2`. On success the lookup leaves the pending list. Do not reissue a settled ID as an unbound lookup. Write verification as a normal todo step with an observable outcome.
 
 ## Recover a query or diagnose a failure
 

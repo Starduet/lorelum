@@ -2,6 +2,7 @@ export interface GuidanceProfile {
   readonly description: string;
   readonly catalog: string;
   readonly readHints: string;
+  readonly todo?: string;
 }
 
 const sharedCatalog =
@@ -16,11 +17,9 @@ const ompReadHints =
 const planningDescription =
   "When planning, note what to look up in Lorelum at the step that needs it; then read and apply the relevant Practice.";
 
-const injectedCatalogDescription =
-  `${planningDescription} Use the injected Pack Catalog to discover relevant guidance.`;
+const injectedCatalogDescription = `${planningDescription} Use the injected Pack Catalog to discover relevant guidance.`;
 
-const commandDescription =
-  `${injectedCatalogDescription} The /lore command is also available.`;
+const commandDescription = `${injectedCatalogDescription} The /lore command is also available.`;
 
 export const guidanceProfiles = {
   generic: {
@@ -44,9 +43,11 @@ export const guidanceProfiles = {
     readHints: "",
   },
   omp: {
-    description: "Find Practices before decisions that need guidance. When creating a todo plan, record future lookups as [practice: specific question] in the relevant step.",
+    description:
+      "Find Practices before decisions. Read this Skill when recording lookup reminders in an omp todo.",
     catalog: ompCatalog,
     readHints: ompReadHints,
+    todo: 'In omp, mark future lookups on the relevant todo step as `[query: specific question]` or `[get: exact.practice.id]`. Use the displayed reminder ID in a single Bash command, for example `lore query "specific question" --todo P1` or `lore get exact.practice.id --todo P2`. On success the lookup leaves the pending list. Do not reissue a settled ID as an unbound lookup. Write verification as a normal todo step with an observable outcome.',
   },
   workbuddy: {
     description: commandDescription,

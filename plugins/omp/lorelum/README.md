@@ -4,7 +4,7 @@ Source and maintenance notes for the omp Plugin. Installation and usage are docu
 
 `.omp-plugin/marketplace.json` points to this package; keep its entry version and the package version in sync. `omp.extensions` loads the Catalog and Practice reminder extensions. `skills/lorelum/` contains the generated omp Skill and its references. Host imports are type-only; the Plugin has no runtime dependencies.
 
-`extensions/practice-todo.ts` records explicit `[practice: question]` markers in omp session entries and restores them from the active branch. Successful todo updates append pending reminders to the tool result. `close_lore_lookup` closes one reminder by ID without modifying the todo list.
+`extensions/practice-todo.ts` records `[query: question]` and `[get: exact.practice.id]` markers in the active omp session branch. A standalone `lore query "question" --todo P1` or `lore get exact.practice.id --todo P2` passes through native Bash approval. The extension reads the JSON result and settles the matching reminder when a query returns candidates or a get returns the requested Practice. It blocks settled IDs before Bash runs. `close_lore_lookup` handles explicit cancellation.
 
 Registration uses the operation and tasks in the successful host result. An `init` that carries forward a closed question leaves it closed. Explicitly appending that question can create a fresh reminder when no matching reminder is pending.
 

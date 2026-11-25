@@ -18,7 +18,7 @@ Lorelum Skill SHALL 指引 Agent 在本就制定计划时，将相关后续步�
 
 ### Requirement: omp 会话保留待查 Practice 问题
 
-omp 插件 SHALL 从成功的 `todo init` 和 `append` 登记显式标记 `[practice: 问题]`，为问题分配会话内编号，并在成功的 `init`、`append`、`start` 和 `done` 的工具结果中附加当前未关闭提醒。插件 MUST NOT 重写 todo 列表。插件 SHALL 允许通过 `close_lore_lookup` 关闭单个编号，并随当前会话分支恢复登记与关闭状态。
+omp 插件 SHALL 从成功的 `todo init` 和 `append` 实际提交的任务登记 `[query: 具体问题]` 或 `[get: 精确 Practice ID]`，为待查动作分配分支内编号，并在成功的 `init`、`append`、`start` 和 `done` 的工具结果中附加当前待查项。插件 MUST NOT 重写 todo 列表。插件 SHALL 允许显式撤销指定编号，并随当前会话分支恢复待查和终态。omp Skill SHALL 用有效 YAML 分发，并引导 Agent 把具体检查写为普通 todo 步骤，不把检索成功视作检查完成。
 
 #### Scenario: 重建时遗漏原问题
 - **WHEN** 成功的 `todo init` 替换了包含待查问题的计划，新计划未包含原标记
@@ -27,6 +27,22 @@ omp 插件 SHALL 从成功的 `todo init` 和 `append` 登记显式标记 `[prac
 #### Scenario: 关闭后切换会话
 - **WHEN** Agent 关闭一个提醒，切换到另一会话，再切回
 - **THEN** 另一会话 MUST NOT 收到原会话的提醒，原会话的后续更新 SHALL 只附加其仍未关闭的提醒
+
+### Requirement: omp 一次调用执行并消费待查动作
+
+在 omp Bash 工具中，独立的 `lore query <问题> --todo <编号>` 和 `lore get <ID> --todo <编号>` SHALL 在原生审批下执行和消费待查动作，无需第二次模型工具调用。插件 SHALL 在执行前核对当前分支、编号、动作与目标；对终态、未知、执行中或不匹配的编号 MUST NOT 发起检索。未带 `--todo` 的原命令 SHALL 保持现有行为。
+
+#### Scenario: 完成指定的检索或全文读取
+- **WHEN** 待查编号绑定的 `query` 返回至少一个候选，或绑定的 `get` 返回指定 Practice 全文，且插件成功写回原分支
+- **THEN** 同一工具响应 SHALL 返回操作结果和消费状态，后续计划更新 MUST NOT 继续附加该编号，也 MUST NOT 消费其他编号
+
+#### Scenario: 检索未完成
+- **WHEN** 操作失败、取消、仍在准备、没有候选或未读到指定全文
+- **THEN** 插件 SHALL 保留待查项并返回结果或原因，MUST NOT 自动重试或声明已消费
+
+#### Scenario: 压缩后重放旧编号
+- **WHEN** 摘要仍提到终态编号，模型再次提交绑定该编号的调用
+- **THEN** 插件 SHALL 报告该编号已处理或撤销，并 MUST NOT 发起检索；另一条待查项仍正常回传
 
 ## MODIFIED Requirements
 

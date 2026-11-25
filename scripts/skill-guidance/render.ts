@@ -15,7 +15,7 @@ const skillMarker =
 const recoveryMarker =
   "<!-- Generated from scripts/skill-guidance/content/recovery.md. Run bun run skills:generate to regenerate. -->";
 
-const slots = ["description", "catalog", "readHints"] as const;
+const slots = ["description", "catalog", "readHints", "todo"] as const;
 
 export function renderGuidance(
   sources: GuidanceSources,
@@ -40,6 +40,7 @@ function renderSkillTemplate(template: string, profile: GuidanceProfile): string
     description: profile.description,
     catalog: profile.catalog,
     readHints: profile.readHints,
+    todo: profile.todo ?? "",
   };
 
   for (const slot of slots) {

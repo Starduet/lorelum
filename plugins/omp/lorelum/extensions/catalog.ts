@@ -4,7 +4,7 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@oh-my-pi/pi-coding-agent";
-import registerPracticeTodo from "./practice-todo";
+import registerPracticeTodo, { type PreparePracticeLookup } from "./practice-todo";
 import { createSessionHandoff } from "./session-handoff";
 import {
   createBridgeExecutor,
@@ -71,6 +71,7 @@ export function registerLorelum(
   api: ExtensionAPI,
   execute: BridgeExecutor = createBridgeExecutor(),
   getShellPath: ShellPathReader = readShellPath,
+  prepareLookup?: PreparePracticeLookup,
 ): void {
   let generation = 0;
   let needsRefresh = true;
@@ -141,15 +142,23 @@ export function registerLorelum(
     if (stopped || event.toolName !== "bash" || typeof event.input.command !== "string") {
       return;
     }
+    const lookup = prepareLookup?.(event);
+    if (lookup?.block) return lookup;
+    const input = lookup?.input ?? event.input;
+    const command = input.command as string;
     const requestGeneration = generation;
     const shellController = new AbortController();
     shellControllers.add(shellController);
     try {
       const sessionId = ctx.sessionManager.getSessionId();
-      if (!sessionId) return;
-      const requestedSyntax = requestShellSyntax(event.input, ctx, api, getShellPath);
+      if (!sessionId) return lookup;
+      const requestedSyntax = requestShellSyntax(input, ctx, api, getShellPath);
       const syntax = typeof requestedSyntax === "string" ? requestedSyntax : await requestedSyntax;
-      if (generation !== requestGeneration || shellController.signal.aborted) return;
+      if (generation !== requestGeneration || shellController.signal.aborted) {
+        return (
+          lookup && { block: true, reason: "The session changed before the Lorelum lookup ran." }
+        );
+      }
       const response = parseResponse(
         await execute({
           cwd: ctx.cwd,
@@ -157,25 +166,31 @@ export function registerLorelum(
           request: {
             event: "shell",
             sessionId,
-            command: event.input.command,
+            command,
             syntax,
           },
         }),
       );
+      if (generation !== requestGeneration || shellController.signal.aborted) {
+        return (
+          lookup && { block: true, reason: "The session changed before the Lorelum lookup ran." }
+        );
+      }
       if (
-        generation !== requestGeneration ||
-        shellController.signal.aborted ||
         typeof response.command !== "string" ||
         response.command.trim().length === 0 ||
-        response.command === event.input.command
+        response.command === command
       ) {
-        return;
+        return lookup;
       }
       // Only replace command. Native approval still evaluates the actual input.
-      return { input: { ...event.input, command: response.command } };
+      return { input: { ...input, command: response.command } };
     } catch {
+      if (lookup && (generation !== requestGeneration || shellController.signal.aborted)) {
+        return { block: true, reason: "The session changed before the Lorelum lookup ran." };
+      }
       // Missing/old CLI or a failed rewrite cannot change the original tool call.
-      return;
+      return lookup;
     } finally {
       shellControllers.delete(shellController);
     }
@@ -345,6 +360,5 @@ export function registerLorelum(
 }
 
 export default function lorelum(api: ExtensionAPI): void {
-  registerLorelum(api);
-  registerPracticeTodo(api);
+  registerLorelum(api, undefined, undefined, registerPracticeTodo(api));
 }

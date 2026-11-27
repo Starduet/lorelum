@@ -143,6 +143,7 @@ export function registerLorelum(
       return;
     }
     const lookup = prepareLookup?.(event);
+    if (lookup === null) return;
     if (lookup?.block) return lookup;
     const input = lookup?.input ?? event.input;
     const command = input.command as string;

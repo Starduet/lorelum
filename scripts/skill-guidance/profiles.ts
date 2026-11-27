@@ -47,7 +47,7 @@ export const guidanceProfiles = {
       "Find Practices before decisions. Read this Skill when recording lookup reminders in an omp todo.",
     catalog: ompCatalog,
     readHints: ompReadHints,
-    todo: 'In omp, mark future lookups on the relevant todo step as `[query: specific question]` or `[get: exact.practice.id]`. Use the displayed reminder ID in a single Bash command, for example `lore query "specific question" --todo P1` or `lore get exact.practice.id --todo P2`. On success the lookup leaves the pending list. Do not reissue a settled ID as an unbound lookup. Write verification as a normal todo step with an observable outcome.',
+    todo: 'In omp, mark future lookups on the relevant todo step as `[query: specific question]` or `[get: exact.practice.id]`. Use the displayed reminder ID in a single Bash command, for example `lore query "specific question" --todo P1` or `lore get exact.practice.id --todo P2`. A completed query, including an empty result, or a successful full read settles the reminder. Only when the user asks to cancel an ID, use `: lorelum-cancel --todo P2` in Bash. Do not reissue a settled ID as an unbound lookup. Write verification as a normal todo step with an observable outcome.',
   },
   workbuddy: {
     description: commandDescription,

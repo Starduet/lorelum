@@ -22,7 +22,7 @@ Use `lore query` as needed and read the full Practice with `lore get <practice-i
 
 Read-Practice hints in an omp child come from successful gets by the originating Main session, including in nested task/eval children. They are possibly relevant metadata, not the full guidance or proof of adoption. Read a candidate in full before using it; your own reads belong to your session and are not automatically added to Main's candidates. Enabling `agent.subagentPackCatalog: true` adds only Pack routing metadata, never complete Pack or Practice bodies.
 
-In omp, mark future lookups on the relevant todo step as `[query: specific question]` or `[get: exact.practice.id]`. Use the displayed reminder ID in a single Bash command, for example `lore query "specific question" --todo P1` or `lore get exact.practice.id --todo P2`. On success the lookup leaves the pending list. Do not reissue a settled ID as an unbound lookup. Write verification as a normal todo step with an observable outcome.
+In omp, mark future lookups on the relevant todo step as `[query: specific question]` or `[get: exact.practice.id]`. Use the displayed reminder ID in a single Bash command, for example `lore query "specific question" --todo P1` or `lore get exact.practice.id --todo P2`. A completed query, including an empty result, or a successful full read settles the reminder. Only when the user asks to cancel an ID, use `: lorelum-cancel --todo P2` in Bash. Do not reissue a settled ID as an unbound lookup. Write verification as a normal todo step with an observable outcome.
 
 ## Recover a query or diagnose a failure
 

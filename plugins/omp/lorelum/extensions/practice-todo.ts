@@ -24,8 +24,7 @@ interface TodoDetails {
 interface RunningLookup {
   id: string;
   reminder: Reminder;
-  directory: string;
-  output: string;
+  capture?: { directory: string; output: string };
 }
 
 function removeCapture(directory: string): void {
@@ -36,8 +35,12 @@ function removeCapture(directory: string): void {
 const lookupPrefix =
   /^(lore(?:\.cmd)?)[ \t]+(query|get)[ \t]+("([^"“”„‟\r\n\\`$%!]+)"|([a-zA-Z0-9_][\w.-]*))(?=[ \t]|$)/;
 const reminderSuffix = /^[ \t]+--todo[ \t]+(P[1-9]\d*)$/;
+const cancelPrefix = /^:[ \t]+lorelum-cancel(?=[ \t\r\n;|&<>]|$)/;
 
-export type PreparePracticeLookup = (event: ToolCallEvent) => ToolCallEventResult | undefined;
+// Null leaves the cancellation command unchanged and skips the CLI bridge.
+export type PreparePracticeLookup = (
+  event: ToolCallEvent,
+) => ToolCallEventResult | null | undefined;
 
 function completedLookup(text: string, reminder: Reminder): boolean {
   try {
@@ -49,7 +52,10 @@ function completedLookup(text: string, reminder: Reminder): boolean {
         typeof result.data.practice.body === "string"
       );
     }
-    return Array.isArray(result.data?.results) && result.data.results.length > 0;
+    return (
+      Array.isArray(result.data?.results) &&
+      (result.data.results.length > 0 || result.data.empty?.nextAction === "finish-lookup")
+    );
   } catch {
     return false;
   }
@@ -60,7 +66,9 @@ export default function practiceTodo(api: ExtensionAPI): PreparePracticeLookup {
   const running = new Map<string, RunningLookup>();
 
   function clearRunning(): void {
-    for (const lookup of running.values()) removeCapture(lookup.directory);
+    for (const { capture } of running.values()) {
+      if (capture) removeCapture(capture.directory);
+    }
     running.clear();
   }
 
@@ -84,56 +92,33 @@ export default function practiceTodo(api: ExtensionAPI): PreparePracticeLookup {
   api.on("turn_end", clearRunning);
   api.on("session_shutdown", clearRunning);
 
-  api.registerTool({
-    name: "close_lore_lookup",
-    label: "Close Lorelum reminder",
-    description: "Cancel one pending Lorelum reminder by its displayed ID at the user's request.",
-    parameters: {
-      type: "object",
-      properties: { id: { type: "string" } },
-      required: ["id"],
-      additionalProperties: false,
-    },
-    async execute(_toolCallId, { id }: { id: string }) {
-      const reminder = reminders.get(id);
-      if (!reminder || reminder.closed) {
-        return {
-          content: [{ type: "text", text: `No pending Lorelum reminder with ID ${id}.` }],
-          details: {},
-        };
-      }
-      const next = new Map(reminders);
-      next.set(id, { ...reminder, closed: true });
-      save(next);
-      return { content: [{ type: "text", text: `Closed Lorelum reminder ${id}.` }], details: {} };
-    },
-  });
-
   api.on("tool_result", (event) => {
     if (event.toolName !== "bash") return;
     const lookup = running.get(event.toolCallId);
     if (!lookup) return;
     running.delete(event.toolCallId);
-    const { id, reminder, directory, output } = lookup;
+    const { id, reminder, capture } = lookup;
     let text: string | undefined;
-    try {
-      text = readFileSync(output, "utf8");
-    } catch {
-      // A denied or interrupted call may not create the capture.
-    } finally {
-      removeCapture(directory);
+    if (capture) {
+      try {
+        text = readFileSync(capture.output, "utf8");
+      } catch {
+        // A denied or interrupted call may not create the capture.
+      } finally {
+        removeCapture(capture.directory);
+      }
     }
     if (reminders.get(id) !== reminder) return;
 
     let status = `Lorelum reminder ${id} remains pending.`;
-    if (!event.isError && text && completedLookup(text, reminder)) {
+    if (!event.isError && (!capture || (text && completedLookup(text, reminder)))) {
       const next = new Map(reminders);
       next.set(id, { ...reminder, closed: true });
       try {
         save(next);
-        status = `Lorelum reminder ${id} completed.`;
+        status = `Lorelum reminder ${id} ${capture ? "completed" : "cancelled"}.`;
       } catch {
-        status = `Lorelum reminder ${id} remains pending because its completion could not be saved.`;
+        status = `Lorelum reminder ${id} remains pending because its ${capture ? "completion" : "cancellation"} could not be saved.`;
       }
     }
     return {
@@ -198,19 +183,21 @@ export default function practiceTodo(api: ExtensionAPI): PreparePracticeLookup {
   return (event) => {
     if (event.toolName !== "bash" || typeof event.input.command !== "string") return;
     const command = event.input.command.trim();
+    const cancel = cancelPrefix.exec(command);
     const match = lookupPrefix.exec(command);
-    if (!match) return;
-    const suffix = command.slice(match[0].length);
-    if (!/(?:^|[ \t])--todo(?:[ \t=]|$)/.test(suffix)) return;
+    const prefix = cancel ?? match;
+    if (!prefix) return;
+    const suffix = command.slice(prefix[0].length);
+    if (!cancel && !/(?:^|[ \t])--todo(?:[ \t=]|$)/.test(suffix)) return;
     const id = reminderSuffix.exec(suffix)?.[1];
     if (!id) {
       return {
         block: true,
-        reason: "Use one standalone lore query/get command with a literal target and --todo ID.",
+        reason: cancel
+          ? "Use one standalone : lorelum-cancel --todo ID command."
+          : "Use one standalone lore query/get command with a literal target and --todo ID.",
       };
     }
-    const [, executable, action, literal, quoted, bare] = match;
-    const target = quoted ?? bare;
     const reminder = reminders.get(id);
     if (!reminder || reminder.closed) {
       return {
@@ -218,15 +205,19 @@ export default function practiceTodo(api: ExtensionAPI): PreparePracticeLookup {
         reason: `Lorelum reminder ${id} is ${reminder ? "settled" : "unknown"} in this branch. No lookup ran.`,
       };
     }
-    if (
-      action !== (reminder.action ?? "query") ||
-      target !== reminder.question ||
-      target.startsWith("-")
-    ) {
-      return {
-        block: true,
-        reason: `Command does not match Lorelum reminder ${id}. No lookup ran.`,
-      };
+    if (match) {
+      const [, , action, , quoted, bare] = match;
+      const target = quoted ?? bare;
+      if (
+        action !== (reminder.action ?? "query") ||
+        target !== reminder.question ||
+        target.startsWith("-")
+      ) {
+        return {
+          block: true,
+          reason: `Command does not match Lorelum reminder ${id}. No lookup ran.`,
+        };
+      }
     }
     if (
       event.input.async === true ||
@@ -240,12 +231,17 @@ export default function practiceTodo(api: ExtensionAPI): PreparePracticeLookup {
     if ([...running.values()].some((lookup) => lookup.id === id)) {
       return { block: true, reason: `Lorelum reminder ${id} is already running. No lookup ran.` };
     }
+    if (!match) {
+      running.set(event.toolCallId, { id, reminder });
+      return null;
+    }
+    const [, executable, action, literal] = match;
     const directory = mkdtempSync(join(tmpdir(), "lore-lookup-"));
     const output = join(directory, "result.json");
     // Foreground omp Bash uses its POSIX shell, including on Windows.
     const path = process.platform === "win32" ? output.replaceAll("\\", "/") : output;
     const quotedPath = `'${path.replaceAll("'", "'\\''")}'`;
-    running.set(event.toolCallId, { id, reminder, directory, output });
+    running.set(event.toolCallId, { id, reminder, capture: { directory, output } });
     return {
       input: {
         ...event.input,

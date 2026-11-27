@@ -33,12 +33,16 @@ omp 插件 SHALL 从成功的 `todo init` 和 `append` 实际提交的任务登�
 在 omp Bash 工具中，独立的 `lore query <问题> --todo <编号>` 和 `lore get <ID> --todo <编号>` SHALL 在原生审批下执行和消费待查动作，无需第二次模型工具调用。插件 SHALL 在执行前核对当前分支、编号、动作与目标；对终态、未知、执行中或不匹配的编号 MUST NOT 发起检索。未带 `--todo` 的原命令 SHALL 保持现有行为。
 
 #### Scenario: 完成指定的检索或全文读取
-- **WHEN** 待查编号绑定的 `query` 返回至少一个候选，或绑定的 `get` 返回指定 Practice 全文，且插件成功写回原分支
+- **WHEN** 待查编号绑定的 `query` 返回候选或返回 `finish-lookup` 空结果，或绑定的 `get` 返回指定 Practice 全文，且插件成功写回原分支
 - **THEN** 同一工具响应 SHALL 返回操作结果和消费状态，后续计划更新 MUST NOT 继续附加该编号，也 MUST NOT 消费其他编号
 
 #### Scenario: 检索未完成
-- **WHEN** 操作失败、取消、仍在准备、没有候选或未读到指定全文
+- **WHEN** 操作失败、取消、仍在准备或未读到指定全文
 - **THEN** 插件 SHALL 保留待查项并返回结果或原因，MUST NOT 自动重试或声明已消费
+
+#### Scenario: 用户显式撤销指定编号
+- **WHEN** 用户要求撤销一个待查编号，Agent 通过 omp Bash 提交独立前台命令 `: lorelum-cancel --todo <编号>`，宿主执行和原分支写回成功
+- **THEN** 插件 SHALL 在同一响应返回撤销状态，只移除该编号。插件 MUST NOT 发起检索、改写 todo 或注册独立撤销工具。审批拒绝或保存失败 MUST 保留提醒
 
 #### Scenario: 压缩后重放旧编号
 - **WHEN** 摘要仍提到终态编号，模型再次提交绑定该编号的调用
